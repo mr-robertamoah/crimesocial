@@ -1,0 +1,199 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email        String? @unique
+  username     String  @unique
+  firstName    String?
+  lastName     String?
+  otherNames   String?
+  gender       Gender  @default(UNDISCLOSED)
+  country      String?
+  refreshToken String?
+  avatarUrl    String?
+  password     String
+
+  admin    Admin?
+  agencies Agency[]
+  agents   Agent[]
+  suggestions   Suggestion[] @relation("UserToSuggestion")
+}
+
+model Admin {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  type   AdminType @default(ADMIN)
+  userId Int       @unique
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  verifiedAgencies Agency[]
+}
+
+model Agency {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  type       AgencyType @default(GOVERNMENT)
+  name       String
+  about      String?
+  userId     Int
+  verifiedBy Int
+  verifiedAt DateTime?
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin Admin @relation(fields: [verifiedBy], references: [id], onDelete: Cascade)
+
+  agents        Agent[]
+  crimes        Crime[]         @relation("AgencyToCrime")
+  AgencyToCrime AgencyToCrime[]
+
+  suggestions   Suggestion[] @relation("AgencyToSuggestion")
+}
+
+model Agent {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  type     AgentType @default(NORMAL)
+  position String
+  userId   Int
+  agencyId Int
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  crimes Crime[] @relation("AgentToCrime")
+  AgentToCrime  AgentToCrime[]
+  
+  suggestions   Suggestion[] @relation("AgentToSuggestion")
+}
+
+enum AgencyType {
+  GOVERNMENT
+  NONPROFIT
+}
+
+enum AgentType {
+  NORMAL
+  SUPER
+}
+
+enum AdminType {
+  ADMIN
+  SUPERADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  UNDISCLOSED
+}
+
+model Crime {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  landmark    String?
+  outcome     Outcome   @default(PENDING)
+  severity    Int       @default(1)
+  name        String
+  description String?
+  lat         Float
+  lon         Float
+  occurredOn  DateTime?
+  victim      Json?
+  suspect     Json?
+
+  agents        Agent[]         @relation("AgentToCrime")
+  agencies      Agency[]        @relation("AgencyToCrime")
+  AgencyToCrime AgencyToCrime[]
+  AgentToCrime  AgentToCrime[]
+}
+
+enum Outcome {
+  CONVICTION
+  PENDING
+  ACQUITTAL
+}
+
+model AgencyToCrime {
+  agencyId Int
+  crimeId  Int
+
+  crime  Crime  @relation(fields: [crimeId], references: [id])
+  agency Agency @relation(fields: [agencyId], references: [id])
+
+  @@id([agencyId, crimeId])
+}
+
+model AgentToCrime {
+  agentId Int
+  crimeId Int
+
+  crime  Crime  @relation(fields: [crimeId], references: [id])
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@id([agentId, crimeId])
+}
+
+model Suggestion {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  byId      Int
+  byType      String
+  type    SuggestionType @default(APP)
+  message String
+
+  user User @relation("UserToSuggestion", fields: [byId], references: [id], onDelete: Cascade, map: "UserSuggestionByIdFKey")
+  agency Agency @relation("AgencyToSuggestion", fields: [byId], references: [id], onDelete: Cascade, map: "AgencySuggestionByIdFKey")
+  agent Agent @relation("AgentToSuggestion", fields: [byId], references: [id], onDelete: Cascade, map: "AgentSuggestionByIdFKey")
+}
+
+enum SuggestionType {
+  APP
+  CRIMECATEGORY
+  CRIMETYPE
+}
+
+model CrimeCategory {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  by   Json
+  name String
+
+  crimeTypes CrimeType[]
+}
+
+model CrimeType {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  by   Json
+  name String
+
+  crimeCategoryId Int
+  crimeCategory   CrimeCategory @relation(fields: [crimeCategoryId], references: [id], onDelete: Cascade)
+}
