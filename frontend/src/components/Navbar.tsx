@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Button from "./partials/Button";
 import { useDispatch, useSelector } from "react-redux";
@@ -14,7 +14,12 @@ function Navbar() {
     const user = useSelector((state) => state.user)
     const dispatch = useDispatch()
     const {callAlert} = useMainLayoutContext()
+    const [username, setUsername] = useState('')
 
+    useEffect(() => {
+        setUsername(user.username)
+    }, [user])
+    
     function navigateTo(path: string) {
         setShow(false)
         navigate(path)
@@ -44,7 +49,10 @@ function Navbar() {
                 show: true,
             })
         })
-        .finally(() => setLogoutText('logout'))
+        .finally(() => {
+            setLogoutText('logout')
+            setUsername(user.username)
+        })
     }
 
     return (
@@ -57,21 +65,34 @@ function Navbar() {
             {user.id ? 
                 <>
                     <div className="hidden xs:flex mx-3 cursor-pointer relative">
-                        <div className="mr-1 max-w-[150px] text-ellipsis text-nowrap overflow-hidden text-gray-800">{user.username}</div>
+                        <div
+                            onClick={() => setShow(!show)}
+                            className="mr-1 max-w-[150px] text-ellipsis text-nowrap overflow-hidden text-gray-800">
+                            {username}</div>
                         <div className="text-blue-700" onClick={() => setShow(!show)}>
                             {!show && <div>▼</div>}
                             {show && <div>▲</div>}
                         </div>
                         { show && <div className="absolute top-9 -right-2">
                             <div className="p-2 bg-blue-100 min-w-[200px] rounded-lg w-full text-center">
-                                {pathname != '/profile' && <div onClick={() => navigateTo('/profile')}
+                                {pathname != '/profile' && 
+                                <div onClick={() => navigateTo('/profile')}
                                     className="text-gray-500 cursor-pointer mb-2 p-2 rounded hover:bg-white hover:text-gray-700">
                                     profile
                                 </div>}
+                                {(pathname != '/admin' && user.admin) && 
+                                <div onClick={() => navigateTo('/admin')}
+                                    className="text-gray-500 cursor-pointer mb-2 p-2 rounded hover:bg-white hover:text-gray-700">
+                                    admin dashboard
+                                </div>}
                                 <div
-                                    onClick={logout}
+                                    onClick={async ()=> {
+                                        setShow(false)
+                                        setUsername('logging out ...')
+                                        await logout()
+                                    }}
                                     className="text-gray-500 cursor-pointer p-2 rounded hover:bg-white hover:text-gray-700">
-                                    {logoutText}</div>
+                                    logout</div>
                             </div>
                             <div
                                 onClick={() => setShow(false)}
@@ -92,6 +113,10 @@ function Navbar() {
                                 {pathname != '/profile' && <div onClick={() => navigateTo('/profile')}
                                     className="text-gray-500 cursor-pointer hover:bg-white hover:text-gray-700">
                                     profile
+                                </div>}
+                                {(pathname != '/admin' && user.admin) && <div onClick={() => navigateTo('/admin')}
+                                    className="text-gray-500 cursor-pointer hover:bg-white hover:text-gray-700">
+                                    admin dashboard
                                 </div>}
                                 <div
                                     onClick={logout}

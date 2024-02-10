@@ -22,7 +22,7 @@ export default function Alert({children, show = false, type = "success", timing 
 
     return (
         <Transition show={appear} as={Fragment} leave="duration-200">
-            <div className="z-50">
+            <div className="z-[100] fixed w-full flex justify-center">
                 <Transition.Child
                     as={Fragment}
                     enter="z-50 ease-out duration-300"

@@ -1,8 +1,18 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ParseIntPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { SigninDTO, SignupDTO } from './dto';
+import {
+  ChangePasswordDTO,
+  SigninDTO,
+  SignupDTO,
+  RefreshTokenDTO,
+} from './dto';
 import { JwtGuard, JwtRefreshGuard } from './guard';
-import { RefreshTokenDTO } from './dto/refreshToken.dto';
 import { User } from '@prisma/client';
 import { GetRequestUser } from './decorator';
 
@@ -30,5 +40,23 @@ export class AuthController {
   @Post('logout')
   async logout(@GetRequestUser() user: User) {
     return await this.service.logout(user);
+  }
+
+  @UseGuards(JwtGuard)
+  @Post('change-password')
+  async changePassword(
+    @GetRequestUser() user: User,
+    @Body() dto: ChangePasswordDTO,
+  ) {
+    return await this.service.changePassword(user, dto);
+  }
+
+  @UseGuards(JwtGuard)
+  @Post('delete-account')
+  async deleteAccount(
+    @GetRequestUser() user: User,
+    @Body('userId', new ParseIntPipe()) userId: number,
+  ) {
+    return await this.service.deleteAccount(user, userId);
   }
 }

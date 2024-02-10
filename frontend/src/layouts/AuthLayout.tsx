@@ -1,15 +1,11 @@
-import { useEffect, useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { AuthLayoutContext } from "./AuthLayoutContext";
 import { useSelector } from "react-redux";
+import { Unauthorized } from "../pages/Unauthorized";
 
 export const AuthLayout = () => {
     const user = useSelector((state) => state.user)
-    const navigate = useNavigate()
-    
-    useEffect(() => {
-        if (user.id) return navigate('/')
-    }, [user, navigate])
 
     const layoutOutletType = useLocation().pathname.substring(1)
     const [message, setMessage] = useState<string | null>(null)
@@ -23,7 +19,7 @@ export const AuthLayout = () => {
         }
         setMessage(newMessage)
     }
-    return (
+    return !user.id ? (
         <AuthLayoutContext.Provider value={{updateMessage}}>
             {message && <div className="w-full mx-auto xs:w-[70%] md:w-[50%] mt-4 rounded-lg min-h-[50px] flex justify-center bg-blue-300">
                 <div className="w-fit p-2 text-blue-800 text-lg font-bold">{message} ...</div>
@@ -45,5 +41,11 @@ export const AuthLayout = () => {
                 </div>
             </div>
         </AuthLayoutContext.Provider>
+    ) : (
+        <Unauthorized who={user.username}>
+            <div className="text-center">
+                You are already logged in. Check out the <Link to={'/'} className="text-blue-700 p-2 hover:bg-blue-200 cursor-pointer"></Link> 
+            </div>
+        </Unauthorized>
     )
 }

@@ -28,8 +28,6 @@ export class JwtRefreshStrategy extends PassportStrategy(
       },
     });
 
-    if (user) delete user.password;
-
     const dto: RefreshTokenDTO = {
       user,
       refreshToken: '',

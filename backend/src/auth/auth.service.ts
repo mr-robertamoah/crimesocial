@@ -3,14 +3,18 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { SigninDTO, SignupDTO } from './dto';
+import { ChangePasswordDTO, SigninDTO, SignupDTO } from './dto';
 import * as argon from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user/user.service';
 import { RefreshTokenDTO } from './dto/refreshToken.dto';
+import { AdminService } from 'src/admin/admin.service';
+import { ImageService } from 'src/image/image.service';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +23,8 @@ export class AuthService {
     private jwt: JwtService,
     private config: ConfigService,
     private userService: UserService,
+    private adminService: AdminService,
+    private imageService: ImageService,
   ) {}
 
   async signin(dto: SigninDTO) {
@@ -95,7 +101,7 @@ export class AuthService {
   }
 
   async refreshToken(dto: RefreshTokenDTO) {
-    if (dto.user.refreshToken)
+    if (!dto.user?.refreshToken)
       throw new ForbiddenException('Unauthorized. Login to application.');
 
     const tokenMatches = await argon.verify(
@@ -114,7 +120,58 @@ export class AuthService {
   }
 
   async logout(user: User) {
-    console.log(user);
     await this.userService.updateToken(user.id, null);
+  }
+
+  async changePassword(user: User, dto: ChangePasswordDTO) {
+    const oldPasswordMatches = await argon.verify(
+      user.password,
+      dto.oldPassword,
+    );
+    if (!oldPasswordMatches)
+      throw new UnauthorizedException('Wrong old password was given.');
+
+    if (dto.newPassword !== dto.newPasswordConfirmation)
+      throw new BadRequestException(
+        'The new password does not match with confirmation password.',
+      );
+
+    user = await this.userService.updatePassword(user.id, dto.newPassword);
+
+    delete user.password;
+    delete user.refreshToken;
+
+    return user;
+  }
+
+  async deleteAccount(user: User, userId: string | number) {
+    const accountUser = await this.userService.ensureUserIdIsValid(userId);
+
+    const isAdmin = await this.adminService.isAdmin(user.id);
+    const isAccountAdmin = await this.adminService.isAdmin(Number(userId));
+    const isSuperAdmin = await this.adminService.isSuperAdmin(user.id);
+
+    if (
+      !(
+        user.id === Number(userId) ||
+        (isAdmin && !isAccountAdmin) ||
+        (isSuperAdmin && isAccountAdmin)
+      )
+    )
+      throw new UnauthorizedException('You cannot Account.');
+
+    try {
+      // TODO delete other models regarding a user
+      await this.adminService.deleteAdmin(accountUser);
+      await this.imageService.deleteImageUsingUrl(accountUser.avatarUrl);
+      return await this.prisma.user.delete({
+        where: { id: accountUser.id },
+      });
+    } catch (err) {
+      console.log(err);
+      throw new InternalServerErrorException(
+        'Sorry! Something unusual happened. Please try again later.',
+      );
+    }
   }
 }
