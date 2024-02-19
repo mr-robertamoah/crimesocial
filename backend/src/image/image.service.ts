@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { User } from '@prisma/client';
+import { Agency, User } from '@prisma/client';
 import { FileService } from 'src/file/file.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -25,11 +25,14 @@ export class ImageService {
     });
   }
 
-  async deleteImageOfUser(user: User) {
-    if (!user.avatarUrl) return;
+  async deleteImageFor(data: {
+    imageableType: string;
+    imageable: User | Agency;
+  }) {
+    if (!data.imageable.avatarUrl) return;
 
     const avatar = await this.prisma.avatar.findFirst({
-      where: { url: user.avatarUrl },
+      where: { url: data.imageable.avatarUrl },
     });
 
     if (!avatar) return;
@@ -39,15 +42,39 @@ export class ImageService {
     });
   }
 
-  async storeAndCreateImage(user: User, file: Express.Multer.File) {
+  async storeAndCreateImage(
+    data: {
+      imageableType: string;
+      imageable: User | Agency;
+    },
+    file: Express.Multer.File,
+  ) {
     const { path, url } = await this.fileService.storeFileAndGetDetails(file);
 
-    return await this.createImage(user, { path, url });
+    return await this.createImage({
+      path,
+      url,
+      imageableId: data.imageable.id,
+      imageableType: data.imageableType,
+    });
   }
 
-  private async createImage(user: User, data: { path: string; url: string }) {
+  private async createImage(data: {
+    path: string;
+    url: string;
+    imageableType: string;
+    imageableId: number;
+  }) {
+    const relations =
+      data.imageableType == 'user'
+        ? { users: { connect: { id: data.imageableId } } }
+        : { agencies: { connect: { id: data.imageableId } } };
+
     return await this.prisma.avatar.create({
-      data: { userId: user.id, ...data },
+      data: {
+        ...data,
+        ...relations,
+      },
     });
   }
 }

@@ -117,7 +117,14 @@ export class UserService {
     });
 
     let image = null;
-    if (file) image = await this.imageService.storeAndCreateImage(user, file);
+    if (file)
+      image = await this.imageService.storeAndCreateImage(
+        {
+          imageable: user,
+          imageableType: 'user',
+        },
+        file,
+      );
 
     if (
       (this.deleteAvatar(dto.deleteAvatarUrl) || image) &&

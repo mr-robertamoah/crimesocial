@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AgencyType, FileableType, PostableType, User } from '@prisma/client';
+import { AgencyType, User } from '@prisma/client';
 import { CreateAgencyDTO, UpdateAgencyDTO } from './dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FileService } from 'src/file/file.service';
@@ -24,6 +24,31 @@ export class AgencyService {
     private adminService: AdminService,
   ) {}
 
+  async isAgent(user: User) {
+    const agency = await this.prisma.agency.findFirst({
+      where: {
+        OR: [
+          {
+            userId: user.id,
+          },
+          {
+            agents: {
+              some: {
+                userId: user.id,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    return !!agency;
+  }
+
+  async isNotAgent(user: User) {
+    return !(await this.isAgent(user));
+  }
+
   async createAgency(
     user: User,
     dto: CreateAgencyDTO,
@@ -35,37 +60,38 @@ export class AgencyService {
       about: dto.about,
     };
 
-    const agency = await this.prisma.agency.create({
-      data: {
-        ...data,
+    const post = await this.prisma.$transaction(async () => {
+      const agency = await this.prisma.agency.create({
+        data: {
+          ...data,
+          userId: user.id,
+          type:
+            dto.type == AgencyType.GOVERNMENT
+              ? AgencyType.GOVERNMENT
+              : AgencyType.NONPROFIT,
+        },
+      });
+
+      await this.fileService.createAndStoreFilesFor(
+        { userId: user.id, agencyId: agency.id },
+        files,
+      );
+
+      return await this.postService.createPostFrom({
+        agencyId: agency.id,
         userId: user.id,
-        type:
-          dto.type == AgencyType.GOVERNMENT
-            ? AgencyType.GOVERNMENT
-            : AgencyType.NONPROFIT,
-      },
+      });
     });
 
-    const fileModels = await this.fileService.createAndStoreFilesFor(
-      { userId: user.id, modelId: agency.id, modelType: 'Crime' },
-      files,
-    );
-
-    await this.postService.createPostFrom({
-      postableId: agency.id,
-      postableType: PostableType.Agency,
-      userId: user.id,
+    post.agency[0].files = post.agency[0].files.map((file) => {
+      delete file.path;
+      return file;
     });
 
-    return {
-      ...agency,
-      files: fileModels.map((f) => {
-        delete f.path;
-        delete f.fileableId;
-        delete f.fileableType;
-        return f;
-      }),
-    };
+    delete post.user.password;
+    delete post.user.refreshToken;
+
+    return post;
   }
 
   async updateAgency(
@@ -92,8 +118,7 @@ export class AgencyService {
       await this.fileService.createAndStoreFilesFor(
         {
           userId: user.id,
-          modelType: FileableType.Agency,
-          modelId: agency.id,
+          agencyId: agency.id,
         },
         files,
       );
@@ -103,18 +128,21 @@ export class AgencyService {
     }
 
     agency = await this.prisma.updateMultipleFields({
-      field: 'crime',
+      field: 'agency',
       fieldId: agency.id,
       keyAndValuePairs: data,
       include: { files: true },
     });
 
-    await this.fileService.createAndStoreFilesFor(
-      { userId: user.id, modelId: agency.id, modelType: 'Agency' },
-      files,
-    );
+    agency.files = agency.files.map((file) => {
+      delete file.path;
+      return file;
+    });
 
-    return agency;
+    return await this.postService.getPostFor({
+      postableType: 'agency',
+      postableId: agency.id,
+    });
   }
 
   async ensureAgencyIdIsValid(agencyId: string | number) {
@@ -144,7 +172,12 @@ export class AgencyService {
         agency.files.map((file) => file.id),
       );
 
-    return await this.prisma.crime.delete({
+    await this.postService.getPostFor({
+      postableType: 'agency',
+      postableId: agency.id,
+    });
+
+    return await this.prisma.agency.delete({
       where: { id: agency.id },
     });
   }

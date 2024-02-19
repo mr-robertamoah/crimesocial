@@ -3,13 +3,15 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { FileableType, PostableType, User } from '@prisma/client';
+import { SuggestionType, User } from '@prisma/client';
 import CreateCrimeDTO from './dto/create-crime.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FileService } from 'src/file/file.service';
 import UpdateCrimeDTO from './dto/update-crime.dto';
 import { AdminService } from 'src/admin/admin.service';
 import { PostService } from 'src/post/post.service';
+import { SuggestionService } from 'src/suggestion/suggestion.service';
+import { DescriptiveMarkers } from 'src/constants';
 
 type CrimeDataType = {
   anonymous?: boolean;
@@ -32,6 +34,7 @@ export class CrimeService {
     private fileService: FileService,
     private adminService: AdminService,
     private postService: PostService,
+    private suggestionService: SuggestionService,
   ) {
     this.updateDescriptiveMarkers();
   }
@@ -40,8 +43,10 @@ export class CrimeService {
 
   private doesNotContainMainMarkers(victimOrSuspect: object) {
     let doesNotContain = true;
+    console.log(victimOrSuspect);
 
     Object.keys(victimOrSuspect).forEach((key) => {
+      console.log(key);
       if (this.descriptiveMarkers.includes(key)) {
         doesNotContain = false;
       }
@@ -61,6 +66,10 @@ export class CrimeService {
       },
     });
     this.descriptiveMarkers = markers.map((marker) => marker.name);
+
+    if (!this.descriptiveMarkers.length) {
+      this.descriptiveMarkers = DescriptiveMarkers;
+    }
   }
 
   private getVictimAndSuspectFromDTO(dto: CreateCrimeDTO | UpdateCrimeDTO) {
@@ -75,7 +84,7 @@ export class CrimeService {
     key: string,
   ) {
     const value = dto[key] ? JSON.parse(dto[key]) : null;
-    if (value && this.doesNotContainMainMarkers(value)) {
+    if (Object.keys(value).length && this.doesNotContainMainMarkers(value)) {
       throw new BadRequestException(
         `Please add any of the following key markers to the ${key} description: ${this.getMarkersAsString()}`,
       );
@@ -89,48 +98,58 @@ export class CrimeService {
     dto: CreateCrimeDTO,
     files: Array<Express.Multer.File>,
   ) {
+    console.log(dto, files);
     const { victim, suspect } = this.getVictimAndSuspectFromDTO(dto);
 
     const data = {
       anonymous: dto.anonymous == 'true' ? true : false,
-      crimeTypeId: dto.crimeTypeId,
+      crimeTypeId: dto.crimeTypeId ? Number(dto.crimeTypeId) : null,
       crimeTypeName: dto.crimeTypeName,
       description: dto.description,
       name: dto.name,
-      severity: dto.severity,
-      lat: dto.lat,
-      lon: dto.lon,
+      severity: Number(dto.severity),
+      lat: Number(dto.lat),
+      lon: Number(dto.lon),
       landmark: dto.landmark,
-      occurredOn: dto.occurredOn,
+      occurredOn: new Date(dto.occurredOn).toISOString(),
       victim,
       suspect,
     };
 
-    if (dto.anonymous == 'true') data['anonymous'] = true;
-    const crime = await this.prisma.crime.create({
-      data: { userId: user.id, ...data },
+    const post = await this.prisma.$transaction(async () => {
+      if (dto.anonymous == 'true') data['anonymous'] = true;
+      const crime = await this.prisma.crime.create({
+        data: { userId: user.id, ...data },
+      });
+
+      await this.fileService.createAndStoreFilesFor(
+        { userId: user.id, crimeId: crime.id },
+        files,
+      );
+
+      if (dto.crimeTypeName && !dto.crimeTypeId)
+        await this.suggestionService.createSuggestionFor({
+          byId: user.id,
+          byType: 'User',
+          type: SuggestionType.CRIMETYPE,
+          message: 'add crime type if missing.',
+        });
+
+      return await this.postService.createPostFrom({
+        crimeId: crime.id,
+        userId: user.id,
+      });
     });
 
-    const fileModels = await this.fileService.createAndStoreFilesFor(
-      { userId: user.id, modelId: crime.id, modelType: 'Crime' },
-      files,
-    );
-
-    await this.postService.createPostFrom({
-      postableId: crime.id,
-      postableType: PostableType.Crime,
-      userId: user.id,
+    post.crime[0].files = post.crime[0].files.map((file) => {
+      delete file.path;
+      return file;
     });
 
-    return {
-      ...crime,
-      files: fileModels.map((f) => {
-        delete f.path;
-        delete f.fileableId;
-        delete f.fileableType;
-        return f;
-      }),
-    };
+    delete post.user.password;
+    delete post.user.refreshToken;
+
+    return post;
   }
 
   async ensureCrimeIdIsValid(crimeId: string | number) {
@@ -174,8 +193,7 @@ export class CrimeService {
       await this.fileService.createAndStoreFilesFor(
         {
           userId: user.id,
-          modelType: FileableType.Crime,
-          modelId: crime.id,
+          crimeId: crime.id,
         },
         files,
       );
@@ -191,12 +209,15 @@ export class CrimeService {
       include: { files: true },
     });
 
-    await this.fileService.createAndStoreFilesFor(
-      { userId: user.id, modelId: crime.id, modelType: 'Crime' },
-      files,
-    );
+    crime.files = crime.files.map((file) => {
+      delete file.path;
+      return file;
+    });
 
-    return crime;
+    return await this.postService.getPostFor({
+      postableType: 'crime',
+      postableId: crime.id,
+    });
   }
 
   async deleteCrime(user: User, crimeId: number) {
@@ -212,6 +233,11 @@ export class CrimeService {
       await this.fileService.deleteFilesUsingIds(
         crime.files.map((file) => file.id),
       );
+
+    await this.postService.deletePostFor({
+      postableType: 'crime',
+      postableId: crime.id,
+    });
 
     return await this.prisma.crime.delete({
       where: { id: crime.id },

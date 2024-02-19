@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Param,
@@ -15,22 +16,22 @@ import { GetRequestUser } from '../auth/decorator';
 import { CreateAgencyDTO, UpdateAgencyDTO } from './dto';
 import { AgencyService } from './agency.service';
 import { JwtGuard } from '../auth/guard';
+import MulterConfigService from 'src/multer/multer-config.service';
 
 @UseGuards(JwtGuard)
 @Controller('agency')
-export class AgencyController {
-  constructor(private service: AgencyService) {}
+export class AgencyController extends MulterConfigService {
+  constructor(private service: AgencyService) {
+    super();
+  }
 
   @UseInterceptors(FilesInterceptor('files'))
   @Post()
   async createAgency(
     @GetRequestUser() user: User,
-    dto: CreateAgencyDTO,
+    @Body() dto: CreateAgencyDTO,
     @UploadedFiles(
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: 'image/*',
-        })
         .addMaxSizeValidator({
           maxSize: 300000, // TODO replace with appropriate size
           message: 'Your image is too big. It should be below 30mb',
@@ -48,12 +49,9 @@ export class AgencyController {
   @Post(':agencyId')
   async updateAgency(
     @GetRequestUser() user: User,
-    dto: UpdateAgencyDTO,
+    @Body() dto: UpdateAgencyDTO,
     @UploadedFiles(
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: 'image/*', // TODO make it accept videos too
-        })
         .addMaxSizeValidator({
           maxSize: 300000, // TODO replace with appropriate size
           message: 'Your image is too big. It should be below 30mb',

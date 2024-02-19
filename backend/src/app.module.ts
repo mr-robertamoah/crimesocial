@@ -13,6 +13,10 @@ import { MulterModule } from '@nestjs/platform-express';
 import { AgencyModule } from './agency/agency.module';
 import { AgentModule } from './agent/agent.module';
 import { PostModule } from './post/post.module';
+import { SuggestionModule } from './suggestion/suggestion.module';
+import { CrimeTypeModule } from './crime-type/crime-type.module';
+import { CrimeCategoryModule } from './crime-category/crime-category.module';
+import MulterConfigService from './multer/multer-config.service';
 
 @Module({
   imports: [
@@ -27,11 +31,14 @@ import { PostModule } from './post/post.module';
     }),
     ImageModule,
     FileModule,
-    MulterModule.register({
-      dest: './uploads',
+    MulterModule.registerAsync({
+      useClass: MulterConfigService,
     }),
     AgencyModule,
     AgentModule,
+    SuggestionModule,
+    CrimeTypeModule,
+    CrimeCategoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

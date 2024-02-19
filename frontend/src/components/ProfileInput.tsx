@@ -1,6 +1,8 @@
 import { forwardRef, useEffect, useRef } from "react"
 
-export default forwardRef(function ProfileInput({ type = 'text', className = '', isFocused = false, ...props }, ref) {
+export default forwardRef(function ProfileInput(
+    { type = 'text', className = '', isFocused = false, ...props } :
+    { type: string; className: string; isFocused: boolean }, ref) {
     const input = ref ? ref : useRef()
 
     useEffect(() => {

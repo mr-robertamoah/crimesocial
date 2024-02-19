@@ -29,11 +29,20 @@ model User {
   admin    Admin?
   agencies Agency[]
   agents   Agent[]
+
   avatars   Avatar[]
+  AvatarToUser AvatarToUser[]
+
   addedFiles   File[]
-  suggestions   Suggestion[] @relation("UserToSuggestion")
-  crimeTypes   CrimeType[] @relation("UserToCrimeType")
-  crimeCategories   CrimeCategory[] @relation("UserToCrimeCategory")
+
+  suggestions   Suggestion[]
+  SuggestionToUser SuggestionToUser[]
+
+  crimeTypes   CrimeType[]
+  CrimeTypeToUser CrimeTypeToUser[]
+  
+  crimeCategories CrimeCategory[]
+  CrimeCategoryToUser CrimeCategoryToUser[]
 
   reportedCrimes Crime[]
   addedDescriptiveMarkers DescriptiveMarker[]
@@ -47,9 +56,32 @@ model Avatar {
 
   url String @unique
   path String
+
+  users User[]
+  AvatarToUser AvatarToUser[]
+  
+  agencies Agency[]
+  AvatarToAgency AvatarToAgency[]
+}
+
+model AvatarToUser {
+  avatarId Int
   userId Int
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+  avatar Avatar @relation(fields: [avatarId], references: [id])
+
+  @@id([avatarId, userId])
+}
+
+model AvatarToAgency {
+  avatarId Int
+  agencyId Int
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  avatar Avatar @relation(fields: [avatarId], references: [id])
+
+  @@id([avatarId, agencyId])
 }
 
 model File {
@@ -62,22 +94,17 @@ model File {
   mime String
   size Int
   userId Int
-  fileableId Int?
-  fileableType FileableType?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  crime Crime? @relation("CrimeToFile", fields: [fileableId], references: [id], map: "CrimeFileByIdFKey")
-  agency Agency? @relation("AgencyToFile", fields: [fileableId], references: [id], map: "AgencyFileByIdFKey")
-
-  Post Post[]
+  posts Post[]
   FileToPost FileToPost[]
-}
 
-enum FileableType {
-  Crime
-  Agency
-  Post
+  crimes Crime[]
+  FileToCrime FileToCrime[]
+
+  agencies Agency[]
+  FileToAgency FileToAgency[]
 }
 
 model Admin {
@@ -99,10 +126,13 @@ model Agency {
 
   type       AgencyType @default(GOVERNMENT)
   name       String
+  email String?
+  phoneNumber String?
   about      String?
   userId     Int
   verifiedBy Int?
   verifiedAt DateTime?
+  avatarUrl    String?
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   admin Admin? @relation(fields: [verifiedBy], references: [id], onDelete: Cascade)
@@ -111,12 +141,23 @@ model Agency {
   crimes        Crime[]         @relation("AgencyToCrime")
   AgencyToCrime AgencyToCrime[]
 
-  suggestions   Suggestion[] @relation("AgencyToSuggestion")
-  crimeTypes   CrimeType[] @relation("AgencyToCrimeType")
-  crimeCategories   CrimeCategory[] @relation("AgencyToCrimeCategory")
+  suggestions   Suggestion[]
+  SuggestionToAgency SuggestionToAgency[]
+
+  crimeTypes   CrimeType[]
+  CrimeTypeToAgency CrimeTypeToAgency[]
   
-  files File[] @relation("AgencyToFile")
-  post Post[] @relation("AgencyToPost")
+  crimeCategories   CrimeCategory[]
+  CrimeCategoryToAgency CrimeCategoryToAgency[]
+  
+  files File[]
+  FileToAgency FileToAgency[]
+
+  post Post[]
+  PostToAgency PostToAgency[]
+
+  avatars   Avatar[]
+  AvatarToAgency AvatarToAgency[]
 }
 
 model Agent {
@@ -135,14 +176,20 @@ model Agent {
   crimes Crime[] @relation("AgentToCrime")
   AgentToCrime  AgentToCrime[]
   
-  suggestions   Suggestion[] @relation("AgentToSuggestion")
-  crimeTypes   CrimeType[] @relation("AgentToCrimeType")
-  crimeCategories   CrimeCategory[] @relation("AgentToCrimeCategory")
+  suggestions   Suggestion[]
+  SuggestionToAgent SuggestionToAgent[]
+
+  crimeCategories   CrimeCategory[]
+  CrimeCategoryToAgent CrimeCategoryToAgent[]
+
+  crimeTypes   CrimeType[]
+  CrimeTypeToAgent CrimeTypeToAgent[]
 }
 
 enum AgencyType {
   GOVERNMENT
   NONPROFIT
+  PROFIT
 }
 
 enum AgentType {
@@ -189,8 +236,11 @@ model Crime {
   AgencyToCrime AgencyToCrime[]
   AgentToCrime  AgentToCrime[]
 
-  files File[] @relation("CrimeToFile")
-  post Post[] @relation("CrimeToPost")
+  files File[]
+  FileToCrime FileToCrime[]
+
+  post Post[]
+  PostToCrime PostToCrime[]
 }
 
 model DescriptiveMarker {
@@ -235,14 +285,17 @@ model Suggestion {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  byId      Int
-  byType      String
   type    SuggestionType @default(APP)
   message String
 
-  user User @relation("UserToSuggestion", fields: [byId], references: [id], onDelete: Cascade, map: "UserSuggestionByIdFKey")
-  agency Agency @relation("AgencyToSuggestion", fields: [byId], references: [id], onDelete: Cascade, map: "AgencySuggestionByIdFKey")
-  agent Agent @relation("AgentToSuggestion", fields: [byId], references: [id], onDelete: Cascade, map: "AgentSuggestionByIdFKey")
+  users User[]
+  SuggestionToUser SuggestionToUser[]
+
+  agencies Agency[]
+  SuggestionToAgency SuggestionToAgency[]
+
+  agents Agent[]
+  SuggestionToAgent SuggestionToAgent[]
 }
 
 enum SuggestionType {
@@ -251,20 +304,114 @@ enum SuggestionType {
   CRIMETYPE
 }
 
+model SuggestionToUser {
+  suggestionId Int
+  userId Int
+
+  suggestion Suggestion @relation(fields: [suggestionId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([suggestionId, userId])
+}
+
+model SuggestionToAgency {
+  suggestionId Int
+  agencyId Int
+
+  suggestion Suggestion @relation(fields: [suggestionId], references: [id])
+  agency Agency @relation(fields: [agencyId], references: [id])
+
+  @@id([suggestionId, agencyId])
+}
+
+model SuggestionToAgent {
+  suggestionId Int
+  agentId Int
+
+  suggestion Suggestion @relation(fields: [suggestionId], references: [id])
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@id([suggestionId, agentId])
+}
+
 model CrimeCategory {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  byId   Int
-  byType String
   name String
+  description String?
 
-  user User @relation("UserToCrimeCategory", fields: [byId], references: [id], onDelete: Cascade, map: "UserCrimeCategoryByIdFKey")
-  agency Agency @relation("AgencyToCrimeCategory", fields: [byId], references: [id], onDelete: Cascade, map: "AgencyCrimeCategoryByIdFKey")
-  agent Agent @relation("AgentToCrimeCategory", fields: [byId], references: [id], onDelete: Cascade, map: "AgentCrimeCategoryByIdFKey")
+  users User[]
+  CrimeCategoryToUser CrimeCategoryToUser[]
+
+  agencies Agency[]
+  CrimeCategoryToAgency CrimeCategoryToAgency[]
+
+  agents Agent[]
+  CrimeCategoryToAgent CrimeCategoryToAgent[]
 
   crimeTypes CrimeType[]
+}
+
+model CrimeCategoryToUser{
+  crimeCategoryId Int
+  userId Int
+
+  user User @relation(fields: [userId], references: [id])
+  crimeCategory CrimeCategory @relation(fields: [crimeCategoryId], references: [id])
+
+  @@id([crimeCategoryId, userId])
+}
+
+model CrimeCategoryToAgent{
+  crimeCategoryId Int
+  agentId Int
+
+  agent Agent @relation(fields: [agentId], references: [id])
+  crimeCategory CrimeCategory @relation(fields: [crimeCategoryId], references: [id])
+
+  @@id([crimeCategoryId, agentId])
+}
+
+model CrimeCategoryToAgency{
+  crimeCategoryId Int
+  agencyId Int
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  crimeCategory CrimeCategory @relation(fields: [crimeCategoryId], references: [id])
+
+  @@id([crimeCategoryId, agencyId])
+}
+
+model CrimeTypeToUser{
+  crimeTypeId Int
+  userId Int
+
+  user User @relation(fields: [userId], references: [id])
+  crimeType CrimeType @relation(fields: [crimeTypeId], references: [id])
+
+  @@id([crimeTypeId, userId])
+}
+
+model CrimeTypeToAgent{
+  crimeTypeId Int
+  agentId Int
+
+  agent Agent @relation(fields: [agentId], references: [id])
+  crimeType CrimeType @relation(fields: [crimeTypeId], references: [id])
+
+  @@id([crimeTypeId, agentId])
+}
+
+model CrimeTypeToAgency{
+  crimeTypeId Int
+  agencyId Int
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  crimeType CrimeType @relation(fields: [crimeTypeId], references: [id])
+
+  @@id([crimeTypeId, agencyId])
 }
 
 model CrimeType {
@@ -272,16 +419,20 @@ model CrimeType {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  byId   Int
-  byType   String
   name String
+  description String?
 
   crimeCategoryId Int
   crimeCategory   CrimeCategory @relation(fields: [crimeCategoryId], references: [id], onDelete: Cascade)
   
-  user User @relation("UserToCrimeType", fields: [byId], references: [id], onDelete: Cascade, map: "UserCrimeTypeByIdFKey")
-  agency Agency @relation("AgencyToCrimeType", fields: [byId], references: [id], onDelete: Cascade, map: "AgencyCrimeTypeByIdFKey")
-  agent Agent @relation("AgentToCrimeType", fields: [byId], references: [id], onDelete: Cascade, map: "AgentCrimeTypeByIdFKey")
+  users User[]
+  CrimeTypeToUser CrimeTypeToUser[]
+
+  agencies Agency[]
+  CrimeTypeToAgency CrimeTypeToAgency[]
+
+  agents Agent[]
+  CrimeTypeToAgent CrimeTypeToAgent[]
 
   crimes Crime[]
 }
@@ -294,16 +445,36 @@ model Post {
   content String?
   userId Int
 
-  postableId Int
-  postableType PostableType
-
   user User @relation(fields: [userId], references: [id])
 
-  crime Crime? @relation("CrimeToPost", fields: [postableId], references: [id], map: "CrimePostByIdFKey")
-  agency Agency? @relation("AgencyToPost", fields: [postableId], references: [id], map: "AgencyPostByIdFKey")
+  crime Crime[]
+  PostToCrime PostToCrime[]
+  
+  agency Agency[]
+  PostToAgency PostToAgency[]
 
   files File[]
   FileToPost FileToPost[]
+}
+
+model PostToAgency{
+  postId Int
+  agencyId Int
+
+  post Post @relation(fields: [postId], references: [id])
+  agency Agency @relation(fields: [agencyId], references: [id])
+
+  @@id([postId, agencyId])
+}
+
+model PostToCrime{
+  postId Int
+  crimeId Int
+
+  post Post @relation(fields: [postId], references: [id])
+  crime Crime @relation(fields: [crimeId], references: [id])
+
+  @@id([postId, crimeId])
 }
 
 model FileToPost {
@@ -314,6 +485,26 @@ model FileToPost {
   file File @relation(fields: [fileId], references: [id])
 
   @@id([postId, fileId])
+}
+
+model FileToCrime {
+  crimeId Int
+  fileId Int
+
+  crime Crime @relation(fields: [crimeId], references: [id])
+  file File @relation(fields: [fileId], references: [id])
+
+  @@id([crimeId, fileId])
+}
+
+model FileToAgency {
+  agencyId Int
+  fileId Int
+
+  agency Agency @relation(fields: [agencyId], references: [id])
+  file File @relation(fields: [fileId], references: [id])
+
+  @@id([agencyId, fileId])
 }
 
 enum PostableType {

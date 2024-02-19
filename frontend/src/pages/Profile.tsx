@@ -108,7 +108,7 @@ export function Profile() {
         if (countries.length) return
 
         await new axiosWithBase.Axios({
-            baseURL: "https://countriesnow.space/api/v0.1",
+            baseURL: `${import.meta.env.VITE_COUNTRIES_API}`,
         })
         .get('/countries/flag/images')
         .then(res => {
@@ -312,7 +312,6 @@ export function Profile() {
             if (!errors[key]) notEmpty = false
         })
 
-        console.log(notEmpty)
         return notEmpty
     }
 
@@ -328,7 +327,13 @@ export function Profile() {
                 return setFormError(key, messages)
             }
 
-            if (typeof messages == 'string') return
+            if (typeof messages == 'string') {
+                return callAlert({
+                    show: true,
+                    type: 'failed',
+                    message: messages
+                })
+            }
 
             const message: string = messages
                 .filter((m: string) => m.split(' ')[0].toLowerCase() == key.toLowerCase())

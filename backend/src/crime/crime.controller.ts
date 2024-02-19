@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Param,
@@ -22,19 +23,16 @@ import { JwtGuard } from '../auth/guard';
 export class CrimeController {
   constructor(private service: CrimeService) {}
 
+  @Post('')
   @UseInterceptors(FilesInterceptor('files'))
-  @Post()
   async createCrime(
     @GetRequestUser() user: User,
-    dto: CreateCrimeDTO,
+    @Body() dto: CreateCrimeDTO,
     @UploadedFiles(
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: 'image/*',
-        })
         .addMaxSizeValidator({
           maxSize: 300000, // TODO replace with appropriate size
-          message: 'Your image is too big. It should be below 30mb',
+          message: 'Your image/video is too big. It should be below 30mb',
         })
         .build({
           fileIsRequired: false,
@@ -49,7 +47,7 @@ export class CrimeController {
   @Post(':crimeId')
   async updateCrime(
     @GetRequestUser() user: User,
-    dto: UpdateCrimeDTO,
+    @Body() dto: UpdateCrimeDTO,
     @UploadedFiles(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
@@ -57,7 +55,7 @@ export class CrimeController {
         })
         .addMaxSizeValidator({
           maxSize: 300000, // TODO replace with appropriate size
-          message: 'Your image is too big. It should be below 30mb',
+          message: 'Your image/video is too big. It should be below 30mb',
         })
         .build({
           fileIsRequired: false,

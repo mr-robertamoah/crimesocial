@@ -6,4 +6,10 @@ export interface AlertDataType {
     message: string;
 }
 
-export const MainLayoutContext = createContext((data: AlertDataType) => {});
+export const MainLayoutContext = createContext({
+    callAlert: (data: AlertDataType) => {},
+    mapDetails: {
+        Map: null,
+        Marker: null
+    }
+});

@@ -3,18 +3,19 @@ import {
   IsDateString,
   IsInt,
   IsJSON,
-  IsNumber,
+  IsNumberString,
   IsOptional,
   IsString,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export default class CreateCrimeDTO {
   @IsOptional()
   @IsString()
   landmark?: string;
 
-  @IsInt()
-  severity: number;
+  @IsNumberString()
+  severity: string;
 
   @IsString()
   name: string;
@@ -23,11 +24,11 @@ export default class CreateCrimeDTO {
   @IsOptional()
   description?: string;
 
-  @IsNumber()
-  lat: number;
+  @IsNumberString()
+  lat: string;
 
-  @IsNumber()
-  lon: number;
+  @IsNumberString()
+  lon: string;
 
   @IsDateString()
   occurredOn: string;
@@ -44,10 +45,13 @@ export default class CreateCrimeDTO {
   anonymous: string;
 
   @IsOptional()
-  @IsInt()
-  crimeTypeId?: number;
+  @IsString()
+  crimeTypeId?: string;
 
   @IsOptional()
   @IsString()
   crimeTypeName?: string;
+
+  @IsOptional()
+  files?: Array<File>;
 }

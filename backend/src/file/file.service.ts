@@ -6,7 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { rmSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { File, FileableType } from '@prisma/client';
+import { File } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 type FileDetailType = {
@@ -14,6 +14,17 @@ type FileDetailType = {
   path: string;
   mime: string;
   size: number;
+};
+type FileRelations = {
+  agencies?: {
+    connect: { id: number };
+  };
+  posts?: {
+    connect: { id: number };
+  };
+  crimes?: {
+    connect: { id: number };
+  };
 };
 
 @Injectable()
@@ -57,30 +68,57 @@ export class FileService {
   }
 
   async createAndStoreFilesFor(
-    modelData: { userId: number; modelType: FileableType; modelId: number },
+    modelData: {
+      userId: number;
+      agencyId?: null | number;
+      postId?: null | number;
+      crimeId?: null | number;
+    },
     files: Array<Express.Multer.File>,
   ) {
     let data: FileDetailType;
-    let fileModels: Array<File>;
+    const fileModels: Array<File> = [];
 
     files.forEach(async (file) => {
       data = await this.storeFileAndGetDetails(file);
-      fileModels.push(await this.createFileFor(modelData, data));
+      fileModels.push(
+        await this.createFileFor(
+          modelData.userId,
+          data,
+          this.getRelationship(modelData),
+        ),
+      );
     });
 
     return fileModels;
   }
 
+  private getRelationship(modelData: {
+    userId: number;
+    agencyId?: null | number;
+    postId?: null | number;
+    crimeId?: null | number;
+  }): FileRelations {
+    const relations = modelData.agencyId
+      ? { agencies: { connect: { id: modelData.agencyId } } }
+      : modelData.crimeId
+        ? { crimes: { connect: { id: modelData.crimeId } } }
+        : { posts: { connect: { id: modelData.postId } } };
+
+    return relations;
+  }
+
   async createFileFor(
-    modelData: { userId: number; modelType: FileableType; modelId: number },
+    userId: number,
     data: FileDetailType,
+    relations: FileRelations,
   ) {
+    console.log(relations);
     return await this.prisma.file.create({
       data: {
-        fileableType: modelData.modelType,
-        fileableId: modelData.modelId,
-        userId: modelData.userId,
+        userId,
         ...data,
+        ...relations,
       },
     });
   }

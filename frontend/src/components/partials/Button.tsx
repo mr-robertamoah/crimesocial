@@ -11,7 +11,7 @@ function Button(
     return (
         <button 
             className={`${className} bg-blue-600 outline-blue-800 hover:outline outline-2 
-            hover:text-white px-3 py-1 rounded transition duration-75 text-blue-200 text-nowrap`} onClick={clickedButton}>
+            hover:text-white px-3 py-1 rounded transition-all duration-75 ease-in-out text-blue-200 text-nowrap`} onClick={clickedButton}>
             {children}
         </button>
     )

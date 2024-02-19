@@ -15,6 +15,7 @@ export function Register() {
     const dispatch = useDispatch()
     const navigate = useNavigate()
     const user = useSelector((state) => state.user)
+    const [showPassword, setShowPassword] = useState(false)
 
     type dataType = {
         username: string;
@@ -183,7 +184,11 @@ export function Register() {
                 <InputError message={errors.passwordConfirmation} className="mt-2" />
             </div>
 
-            <div className="w-full flex justify-end my-2 p-2">
+            <div className="w-full flex justify-between my-2 p-2">
+                <div
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="cursor-pointer p-2 text-blue-700 hover:bg-white transition rounded"
+                >{showPassword ? 'hide passwords' : 'show passwords'}</div>
                 <Button className="">submit</Button>
             </div>
 

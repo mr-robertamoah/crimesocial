@@ -8,6 +8,7 @@ import { useAuthLayoutContext } from "../layouts/useAuthLayoutContext"
 import { useDispatch, useSelector } from "react-redux"
 import { addTokens } from "../redux/reducers/tokens.reducer"
 import { addUser } from "../redux/reducers/user.reducer"
+import { useMainLayoutContext } from "../layouts/useMainLayoutContext"
 
 export function Login() {
     const { updateMessage } = useAuthLayoutContext()
@@ -15,6 +16,7 @@ export function Login() {
     const dispatch = useDispatch()
     const navigate = useNavigate()
     const user = useSelector((state) => state.user)
+    const { callAlert } = useMainLayoutContext()
 
     type dataType = {
         username: string;
@@ -76,6 +78,14 @@ export function Login() {
         Object.keys(errors).forEach((key: string) => {
             if (typeof messages == 'string' && messages.toLowerCase().split(' ')[0] == key) {
                 return setFormError(key, messages)
+            }
+
+            if (typeof messages == 'string') {
+                return callAlert({
+                    show: true,
+                    type: 'failed',
+                    message: messages
+                })
             }
 
             const message: string = messages
