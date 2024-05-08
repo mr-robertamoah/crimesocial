@@ -91,7 +91,7 @@ export function Profile() {
 
     async function getUserProfile() {
         if (!id) {
-            if (user) return navigate(`profile/${user.id}`)
+            if (user) return navigate(`${user.id}`)
             return navigate(`signin`)
         }
 
@@ -446,6 +446,8 @@ export function Profile() {
                     <div className="mx-5">
                         <DP username={user.username} avatarUrl={user.avatarUrl} size={100}></DP>
                     </div>
+
+                    <div className="hidden h-[100px] w-[100px] h-[90px] w-[90px] h-[85px] w-[85px] h-[70px] w-[70px] h-[60px] w-[60px] h-[55px] w-[55px] h-[80px] w-[80px] h-[70px] w-[70px] h-[65px] w-[65px]"></div>
                 </div>
             </div>
 

@@ -113,29 +113,28 @@ export class CrimeService {
       suspect,
     };
 
-    const post = await this.prisma.$transaction(async () => {
-      if (dto.anonymous == 'true') data['anonymous'] = true;
-      const crime = await this.prisma.crime.create({
-        data: { userId: user.id, ...data },
+    if (dto.anonymous == 'true') data['anonymous'] = true;
+    if (data.crimeTypeId <= 0) data['crimeTypeId'] = null;
+    const crime = await this.prisma.crime.create({
+      data: { userId: user.id, ...data },
+    });
+
+    await this.fileService.createAndStoreFilesFor(
+      { userId: user.id, crimeId: crime.id },
+      files,
+    );
+
+    if (dto.crimeTypeName && !dto.crimeTypeId)
+      await this.suggestionService.createSuggestionFor({
+        byId: user.id,
+        byType: 'User',
+        type: SuggestionType.CRIMETYPE,
+        message: 'add crime type if missing.',
       });
 
-      await this.fileService.createAndStoreFilesFor(
-        { userId: user.id, crimeId: crime.id },
-        files,
-      );
-
-      if (dto.crimeTypeName && !dto.crimeTypeId)
-        await this.suggestionService.createSuggestionFor({
-          byId: user.id,
-          byType: 'User',
-          type: SuggestionType.CRIMETYPE,
-          message: 'add crime type if missing.',
-        });
-
-      return await this.postService.createPostFrom({
-        crimeId: crime.id,
-        userId: user.id,
-      });
+    const post = await this.postService.createPostFrom({
+      crimeId: crime.id,
+      userId: user.id,
     });
 
     post.crime[0].files = post.crime[0].files.map((file) => {

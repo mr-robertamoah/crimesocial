@@ -73,7 +73,7 @@ function Navbar() {
                             {!show && <div>▼</div>}
                             {show && <div>▲</div>}
                         </div>
-                        { show && <div className="absolute top-9 -right-2">
+                        { show && <div className="absolute top-9 -right-2 z-[1000]">
                             <div className="p-2 bg-blue-100 min-w-[200px] rounded-lg w-full text-center">
                                 {pathname != '/profile' && 
                                 <div onClick={() => navigateTo('/profile')}
@@ -108,7 +108,7 @@ function Navbar() {
                                 {show && <div>▲</div>}
                             </div>
                         </div>
-                        { show && <div className="my-2">
+                        { show && <div className="my-2 z-[1000]">
                             <div className="p-2 bg-blue-100 rounded-lg w-[90%] mx-auto text-center mb-2">
                                 {pathname != '/profile' && <div onClick={() => navigateTo('/profile')}
                                     className="text-gray-500 cursor-pointer hover:bg-white hover:text-gray-700">

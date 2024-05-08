@@ -20,7 +20,7 @@ function App() {
 
             <Route index path='' element={<Home/>}></Route>
             <Route path='profile' element={<Profile/>}></Route>
-            <Route path='profile/:username' element={<Profile/>}></Route>
+            <Route path='profile/:id' element={<Profile/>}></Route>
             <Route path='agency/:id'  element={<AgencyProfile/>}></Route>
             <Route path='admin' element={<Admin/>}></Route>
             <Route path='' element={<AuthLayout/>}>
