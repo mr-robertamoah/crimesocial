@@ -8,6 +8,7 @@ import { Register } from './pages/Register'
 import { Login } from './pages/Login'
 import { AuthLayout } from './layouts/AuthLayout'
 import { Admin } from './pages/Admin'
+import AgencyProfile from './pages/AgencyProfile'
 
 function App() {
   
@@ -19,6 +20,8 @@ function App() {
 
             <Route index path='' element={<Home/>}></Route>
             <Route path='profile' element={<Profile/>}></Route>
+            <Route path='profile/:username' element={<Profile/>}></Route>
+            <Route path='agency/:id'  element={<AgencyProfile/>}></Route>
             <Route path='admin' element={<Admin/>}></Route>
             <Route path='' element={<AuthLayout/>}>
               <Route path='signup' element={<Register/>}></Route>

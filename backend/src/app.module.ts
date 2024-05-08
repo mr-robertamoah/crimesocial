@@ -16,6 +16,7 @@ import { PostModule } from './post/post.module';
 import { SuggestionModule } from './suggestion/suggestion.module';
 import { CrimeTypeModule } from './crime-type/crime-type.module';
 import { CrimeCategoryModule } from './crime-category/crime-category.module';
+import { RequestModule } from './request/request.module';
 import MulterConfigService from './multer/multer-config.service';
 
 @Module({
@@ -39,6 +40,7 @@ import MulterConfigService from './multer/multer-config.service';
     SuggestionModule,
     CrimeTypeModule,
     CrimeCategoryModule,
+    RequestModule,
   ],
   controllers: [AppController],
   providers: [AppService],

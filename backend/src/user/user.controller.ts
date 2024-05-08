@@ -1,4 +1,15 @@
-import { Body, Controller, Get, ParseFilePipeBuilder, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseFilePipeBuilder,
+  ParseIntPipe,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { User } from '@prisma/client';
 import { GetRequestUser } from 'src/auth/decorator';
 import { JwtGuard } from 'src/auth/guard';
@@ -12,11 +23,13 @@ export class UserController {
 
   @UseGuards(JwtGuard)
   @Get()
-  getUser(@GetRequestUser() user: User) {
-    delete user.password;
-    delete user.refreshToken;
+  async getUser(@GetRequestUser() user: User) {
+    return await this.service.getUser(user);
+  }
 
-    return user;
+  @Get(':id')
+  async getUserProfile(@Param('id', ParseIntPipe) userId: number) {
+    return await this.service.getUserProfile(userId);
   }
 
   @UseGuards(JwtGuard)

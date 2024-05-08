@@ -14,7 +14,7 @@ export class PostService {
   constructor(private prisma: PrismaService) {}
 
   async getPosts(page: number = 1, pageSize: number = 10) {
-    return await this.prisma.post.findMany({
+    const posts = await this.prisma.post.findMany({
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: {
@@ -24,16 +24,35 @@ export class PostService {
         crime: {
           include: {
             files: true,
+            crimeType: true,
           },
         },
         agency: {
           include: {
             files: true,
+            agents: {
+              select: { userId: true, _count: true },
+            },
           },
         },
         user: true,
       },
     });
+
+    posts.map((post) => {
+      if (!post.crime?.length) return post;
+      post.crime[0].files = post.crime[0].files.map((file) => {
+        delete file.path;
+        return file;
+      });
+
+      delete post.user.password;
+      delete post.user.refreshToken;
+
+      return post;
+    });
+
+    return posts;
   }
 
   async createPostFrom(data: {
@@ -54,11 +73,15 @@ export class PostService {
         crime: {
           include: {
             files: true,
+            crimeType: true,
           },
         },
         agency: {
           include: {
             files: true,
+            agents: {
+              select: { userId: true, _count: true },
+            },
           },
         },
         user: true,
@@ -90,11 +113,15 @@ export class PostService {
         crime: {
           include: {
             files: true,
+            crimeType: true,
           },
         },
         agency: {
           include: {
             files: true,
+            agents: {
+              select: { userId: true, _count: true },
+            },
           },
         },
         user: true,

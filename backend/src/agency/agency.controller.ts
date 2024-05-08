@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   Param,
   ParseFilePipeBuilder,
   ParseIntPipe,
@@ -17,14 +18,15 @@ import { CreateAgencyDTO, UpdateAgencyDTO } from './dto';
 import { AgencyService } from './agency.service';
 import { JwtGuard } from '../auth/guard';
 import MulterConfigService from 'src/multer/multer-config.service';
+import { AddAgentsDTO } from './dto/add-agent.dto';
 
-@UseGuards(JwtGuard)
 @Controller('agency')
 export class AgencyController extends MulterConfigService {
   constructor(private service: AgencyService) {
     super();
   }
 
+  @UseGuards(JwtGuard)
   @UseInterceptors(FilesInterceptor('files'))
   @Post()
   async createAgency(
@@ -45,6 +47,7 @@ export class AgencyController extends MulterConfigService {
     return await this.service.createAgency(user, dto, files);
   }
 
+  @UseGuards(JwtGuard)
   @UseInterceptors(FilesInterceptor('files'))
   @Post(':agencyId')
   async updateAgency(
@@ -65,6 +68,7 @@ export class AgencyController extends MulterConfigService {
     return await this.service.updateAgency(user, dto, files);
   }
 
+  @UseGuards(JwtGuard)
   @Delete(':agencyId')
   async deleteAgency(
     @GetRequestUser() user: User,
@@ -73,11 +77,27 @@ export class AgencyController extends MulterConfigService {
     return await this.service.deleteAgency(user, agencyId);
   }
 
+  @Get(':agencyId')
+  async getAgency(@Param('agencyId', new ParseIntPipe()) agencyId: number) {
+    return await this.service.getAgency(agencyId);
+  }
+
+  @UseGuards(JwtGuard)
   @Post(':agencyId/verify')
   async verifyAgency(
     @GetRequestUser() user: User,
     @Param('agencyId', new ParseIntPipe()) agencyId: number,
   ) {
     return await this.service.verifyAgency(user, agencyId);
+  }
+
+  @UseGuards(JwtGuard)
+  @Post(':agencyId/update-agents')
+  async addOrRemoveAgents(
+    @GetRequestUser() user: User,
+    @Param('agencyId', new ParseIntPipe()) agencyId: number,
+    @Body() dto: AddAgentsDTO,
+  ) {
+    return await this.service.addOrRemoveAgents(user, agencyId, dto);
   }
 }

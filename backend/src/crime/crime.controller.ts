@@ -48,6 +48,7 @@ export class CrimeController {
   async updateCrime(
     @GetRequestUser() user: User,
     @Body() dto: UpdateCrimeDTO,
+    @Param('crimeId', ParseIntPipe) crimeId: number,
     @UploadedFiles(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({
@@ -63,6 +64,7 @@ export class CrimeController {
     )
     files?: Array<Express.Multer.File>,
   ) {
+    dto.crimeId = String(crimeId);
     return await this.service.updateCrime(user, dto, files ?? []);
   }
 

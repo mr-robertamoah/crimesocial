@@ -4,11 +4,15 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { AgencyType, User } from '@prisma/client';
+import { AgencyType, AgentType, Request, User } from '@prisma/client';
 import { CreateAgencyDTO, UpdateAgencyDTO } from './dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { FileService } from 'src/file/file.service';
 import { AdminService } from 'src/admin/admin.service';
+import { AddAgentsDTO } from './dto/add-agent.dto';
+import { AgentService } from 'src/agent/agent.service';
+import { RequestService } from 'src/request/request.service';
+import { request } from 'http';
 
 type AgencyDataType = {
   type?: AgencyType;
@@ -22,6 +26,8 @@ export class AgencyService {
     private fileService: FileService,
     private postService: PostService,
     private adminService: AdminService,
+    private agentService: AgentService,
+    private requestService: RequestService,
   ) {}
 
   async isAgent(user: User) {
@@ -139,10 +145,17 @@ export class AgencyService {
       return file;
     });
 
-    return await this.postService.getPostFor({
+    const post = await this.postService.getPostFor({
       postableType: 'agency',
       postableId: agency.id,
     });
+
+    post.agency[0].files = post.agency[0].files.map((file) => {
+      delete file.path;
+      return file;
+    });
+
+    return post;
   }
 
   async ensureAgencyIdIsValid(agencyId: string | number) {
@@ -193,5 +206,60 @@ export class AgencyService {
       where: { id: agencyId },
       data: { verifiedAt: Date() },
     });
+  }
+
+  async getAgency(agencyId: number) {
+    return await this.prisma.agency.findFirst({
+      where: { id: agencyId },
+      include: {
+        files: {
+          select: {
+            url: true,
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            username: true,
+            avatarUrl: true,
+            id: true,
+          },
+        },
+        agents: {
+          include: {
+            user: {
+              select: {
+                username: true,
+                avatarUrl: true,
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async addOrRemoveAgents(user: User, agencyId: number, dto: AddAgentsDTO) {
+    const agency = await this.ensureAgencyIdIsValid(agencyId);
+
+    await this.agentService.ensureUserCanAddAgentTo(agency, user);
+
+    await this.agentService.deleteAgentsUsingIds(dto.removedAgents);
+
+    const requests: Array<Request> = [];
+
+    dto.potentialAgents.forEach(async (potentialAgent) => {
+      requests.push(
+        await this.requestService.createRequestFor({
+          fromId: user.id,
+          toId: potentialAgent.userId,
+          agencyId: agency.id,
+          message: `become agent of ${agency.name} agency`,
+        }),
+      );
+    });
+
+    return requests;
   }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useDispatch, useSelector } from "react-redux"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import ProfileInput from "../components/ProfileInput"
 import InputError from "../components/InputError"
 import Button from "../components/partials/Button"
@@ -17,6 +17,7 @@ import { addUser, removeUser } from "../redux/reducers/user.reducer"
 import { clearTokens } from "../redux/reducers/tokens.reducer"
 import Loader from "../components/Loader"
 import useRefreshToken from "../hooks/useRefreshToken"
+import { UserType } from "../types"
 
 export function Profile() {
     const user = useSelector((state) => state.user)
@@ -57,6 +58,7 @@ export function Profile() {
     
     const [avatar, setAvatar] = useState({url: '', name: ''})
     const [profileData, setProfileData] = useState(defaultProfileData)
+    const [userProfile, setUserProfile] = useState<UserType | null>(null)
     const [showPassword, setShowPassword] = useState(false)
     const [passwordData, setPasswordData] = useState(defaultPasswordData)
     const [errors, setErrors] = useState(defaultErrors)
@@ -64,24 +66,50 @@ export function Profile() {
     const countries = useSelector(state => state.countries)
     const {callAlert} = useMainLayoutContext()
     const refreshTokens = useRefreshToken()
+    const [loading, setLoading] = useState(false)
+    const { id } = useParams()
     
     useEffect(() => {
         setFullName(`${user.lastName ?? ''} ${user.firstName ?? ''} ${user.otherNames ?? ''}`.trim())
         setAvatar({name: '',  url: user.avatarUrl})
         getCountries()
+        getUserProfile()
+        if (id == user.id) {
+            setProfileData((oldData) => {
+                const newData = defaultProfileData
+                const objectKeys = Object.keys(profileData)
 
-        setProfileData((oldData) => {
-            const newData = defaultProfileData
-            const objectKeys = Object.keys(profileData)
+                Object.keys(user).forEach(key => {
+                    if (objectKeys.includes(key))
+                    newData[key] = user[key] ?? ''
+                })
 
-            Object.keys(user).forEach(key => {
-                if (objectKeys.includes(key))
-                  newData[key] = user[key] ?? ''
+                return newData
             })
-
-            return newData
-        })
+        }
     }, [user])
+
+    async function getUserProfile() {
+        if (!id) {
+            if (user) return navigate(`profile/${user.id}`)
+            return navigate(`signin`)
+        }
+
+        if (loading) return
+
+        setLoading(true)
+        await axios.get(`user/${id}`)
+            .then((res) => {
+                console.log(res)
+                setUserProfile(res.data)
+            })
+            .catch((res) => {
+                console.log(res)
+            })
+            .finally(() => {
+                setLoading(false)
+            })
+    }
 
     function changeAvatar(file: Blob|null) {
         setFormProfileData('avatarFile', file)

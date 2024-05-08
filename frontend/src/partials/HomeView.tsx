@@ -1,12 +1,21 @@
 import { Link } from "react-router-dom";
 import Button from "../components/partials/Button"
 import { useSelector } from "react-redux";
-import { PostType } from "../types";
+import { AgencyType, CrimeType, PostType } from "../types";
 import Post from "../components/Post";
 
 function HomeView(
-    { showCrimesAt = null, createCrime = null, createAgency = null } :
-    { showCrimesAt?: ((where: string) => void) | null; createCrime?: (() => void) | null; createAgency?: (() => void) | null; }
+    { 
+        showCrimesAt = null, createCrime = null, createAgency = null, updatePost = null, 
+        deletePost = null, checkOnMap = null
+    } :
+    { 
+        showCrimesAt?: ((where: string) => void) | null; 
+        createCrime?: (() => void) | null; createAgency?: (() => void) | null; 
+        updatePost: ((type: 'crime' | 'agency' | 'post', item: PostType | CrimeType | AgencyType) => void) | null; 
+        deletePost: ((type: 'crime' | 'agency' | 'post', item: PostType | CrimeType | AgencyType) => void) | null;
+        checkOnMap: ((item: CrimeType | null) => void) | null;
+    }
 ) {
     const user = useSelector((state) => state.user)
     const posts = useSelector((state) => state.posts)
@@ -27,6 +36,24 @@ function HomeView(
         if (!createAgency) return
 
         createAgency()
+    }
+
+    function clickedDeletePost(
+        type: 'crime' | 'agency' | 'post', 
+        item: PostType | CrimeType | AgencyType
+    ) {
+        if (deletePost) deletePost(type, item)
+    }
+
+    function clickedUpdatePost(
+        type: 'crime' | 'agency' | 'post', 
+        item: PostType | CrimeType | AgencyType
+    ) {
+        if (updatePost) updatePost(type, item)
+    }
+
+    function clickedCheckOnMap(item: CrimeType | null) {
+        if (checkOnMap) checkOnMap(item)
     }
 
     return (
@@ -78,9 +105,15 @@ function HomeView(
                     </div>
                 </div>
             </div>
-            <div>
+            <div className="mt-2 mb-4 w-full flex flex-col items-center">
                 {posts.map((post: PostType, idx: number) => {
-                    return <Post key={idx} post={post}></Post>
+                    return <Post
+                        key={idx}
+                        post={post}
+                        deletePost={clickedDeletePost}
+                        updatePost={clickedUpdatePost}
+                        checkOnMap={clickedCheckOnMap}
+                    ></Post>
                 })}
             </div>
         </>

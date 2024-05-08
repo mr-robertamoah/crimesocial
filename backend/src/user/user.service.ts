@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as argon from 'argon2';
-import { User } from '@prisma/client';
+import { RequestState, User } from '@prisma/client';
 import { UpdateUserDTO } from './dto';
 import { AdminService } from 'src/admin/admin.service';
 import { ImageService } from 'src/image/image.service';
@@ -18,6 +18,107 @@ export class UserService {
     private adminService: AdminService,
     private imageService: ImageService,
   ) {}
+
+  async getUsers(data: { page: number; pageSize: number; username: string }) {
+    const users = await this.prisma.user.findMany({
+      where: {
+        username: {
+          contains: data.username,
+        },
+      },
+      select: {
+        username: true,
+        firstName: true,
+        lastName: true,
+        otherNames: true,
+        id: true,
+      },
+      take: data.pageSize,
+      skip: (data.page - 1) * data.pageSize,
+      orderBy: {
+        updatedAt: 'asc',
+      },
+    });
+
+    return users;
+  }
+
+  async getUserProfile(userId: number) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId },
+      include: {
+        agencies: {
+          where: {
+            OR: [
+              {
+                userId: userId,
+              },
+              {
+                agents: {
+                  some: {
+                    userId: userId,
+                  },
+                },
+              },
+            ],
+          },
+        },
+        agents: {
+          where: { userId: userId },
+        },
+        reportedCrimes: {
+          where: { anonymous: false },
+          select: {
+            name: true,
+            description: true,
+          },
+        },
+        requestsTo: {
+          where: { state: RequestState.PENDING },
+          include: {
+            fromUser: {
+              select: {
+                username: true,
+                avatarUrl: true,
+                id: true,
+              },
+            },
+            agencies: {
+              select: {
+                name: true,
+                about: true,
+                avatarUrl: true,
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    delete user.password;
+    delete user.refreshToken;
+
+    return {
+      ...user,
+      isAdmin: await this.adminService.isAdmin(userId),
+    };
+  }
+
+  async getUser(user: User) {
+    delete user.password;
+    delete user.refreshToken;
+
+    return {
+      ...user,
+      isAdmin: await this.adminService.isAdmin(user.id),
+      requestsTo: await this.prisma.request.findMany({
+        where: { toId: user.id, state: RequestState.PENDING },
+        select: {
+          id: true,
+        },
+      }),
+    };
+  }
 
   async updateToken(userId: number, refreshToken: string) {
     try {

@@ -3,7 +3,7 @@ import XCircle from "../icons/XCircle";
 import { Transition } from "@headlessui/react";
 import { Fragment, useState, useEffect } from "react";
 
-export default function Alert({children, show = false, type = "success", timing = 2000, onDisappear = () => {} }) {
+export default function Alert({children, show = false, type = "success", timing = 4000, onDisappear = () => {} }) {
 
     const [appear, setAppear] = useState(false)
 

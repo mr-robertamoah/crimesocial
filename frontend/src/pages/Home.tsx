@@ -17,9 +17,9 @@ import ProfileDatePicker from "../components/ProfileDatePicker";
 import useAxiosWithToken from "../hooks/useAxiosWithToken";
 import { FilesPicker } from "../components/FilesPicker";
 import MediaCapture from "../components/MediaCapture";
-import { addPost, updatePosts } from "../redux/reducers/posts.reducer";
+import { addPost, updatePost, updatePosts } from "../redux/reducers/posts.reducer";
 import { debounce } from "lodash";
-import { CrimeType } from "../types";
+import { AgencyType, CrimeType, FileType, PostType } from "../types";
 import ProfileSelect from "../components/ProfileSelect";
 
 function Home() {
@@ -68,7 +68,8 @@ function Home() {
     search: '',
     suspect: {},
     victim: {},
-    files: null
+    files: null,
+    deletedFiles: [],
   }
   const defaultAgencyData = {
     name: '',
@@ -88,16 +89,17 @@ function Home() {
   const [showModel, setShowModel] = useState(false)
   const [suspectMarker, setSuspectMarker] = useState('')
   const [currentLocation, setCurrentLocation] = useState(AccraCoordinates)
-  const [homeMap, setHomeMap] = useState({ Map: null, Marker: null })
-  const [reportMap, setReportMap] = useState({ Map: null, Marker: null })
+  const [homeMap, setHomeMap] = useState(null)
+  const [reportMap, setReportMap] = useState(null)
   const [victimMarker, setVictimMarker] = useState('')
   const [modelTitle, setModelTitle] = useState('')
-  const [formType, setFormType] = useState('')
+  const [formType, setFormType] = useState<'agency' | 'report' | 'update report' |  'delete report' | 'delete agency' | ''>('')
   const [url, setUrl] = useState('/posts')
   const [page, setPage] = useState(1)
   const [loader, setLoader] = useState(defaultLoader)
   const {callAlert} = useMainLayoutContext()
   const refreshTokens = useRefreshToken()
+  const [oldPost, setOldPost] = useState<CrimeType | null>(null)
   const [reportData, setReportData] = useState(defaultReportData)
   const [reportErrors, setReportErrors] = useState(defaultReportErrors)
   const [agencyData, setAgencyData] = useState(defaultAgencyData)
@@ -111,7 +113,7 @@ function Home() {
   })
 
   useEffect(() => {
-    setView(HomeViews.crimes)
+    setView(HomeViews.all)
 
     getPosts()
 
@@ -189,7 +191,7 @@ function Home() {
   }, [mapDetails])
 
   useEffect(() => {
-    if (mapDetails.Map && formType == 'report') {
+    if (mapDetails.Map && formType.includes('report')) {
       createMap({ type: 'report', mapId: 'reportmap'})
     }
   }, [mapDetails, formType])
@@ -206,14 +208,13 @@ function Home() {
         callAlert({
           message: 'Sorry, something unfortunate happened. Please try again shortly or check you network.',
           show: true,
-          type: 'Failed'
+          type: 'failed'
         })
       })
   }
 
   function createMap(data: {mapId: string; type: string }) {
     if (!mapDetails.Map) return
-    console.log({ lat: Number(currentLocation.lat), lng: Number(currentLocation.lon) })
     const map = new mapDetails.Map(document.getElementById(data.mapId) as HTMLElement, {
       center: { lat: Number(currentLocation.lat), lng: Number(currentLocation.lon) },
       mapId: data.mapId,
@@ -227,8 +228,6 @@ function Home() {
       setReportMap(map)
 
     map.addListener('dblclick', (event) => {
-      console.log(event)
-        console.log(event, 'map event', data.type)
         addMarker(map, {
             lat: event.latLng.lat(),
             lng: event.latLng.lng(),
@@ -260,6 +259,12 @@ function Home() {
       setReportData(defaultReportData)
       setReportErrors(defaultReportErrors)
       setModelTitle('Report Crime')
+      setShowModel(true)
+    }
+
+    if (formType == 'update report') {
+      setReportErrors(defaultReportErrors)
+      setModelTitle('Update Crime')
       setShowModel(true)
     }
     
@@ -347,6 +352,7 @@ function Home() {
       })
     }
 
+    if (formType == 'update report') return submitReportUpdate()
     const reportFormData = getReportFormData()
     setLoader({ show: true, type: 'report' })
     await axiosWithToken.post('/crime', reportFormData, {
@@ -386,6 +392,48 @@ function Home() {
       })
   }
 
+  async function submitReportUpdate() {
+    if (!oldPost) return
+
+    const reportFormData = getUpdatedReportFormData()
+    setLoader({ show: true, type: 'report' })
+    await axiosWithToken.post(`/crime/${oldPost?.id}`, reportFormData, {
+      headers: {'Content-Type': 'multipart/form-data'}
+    })
+    .then((res) => {
+        console.log(res)
+        callAlert({
+            show: true,
+            message: "Report was successfully updated.",
+            type: 'success'
+        })
+        dispatch(updatePost(res.data))
+        setReportData(defaultReportData)
+        closeModal()
+    })
+    .catch(async (err) => {
+        console.log(err)
+        if (
+            err.response?.status == StatusCodes.UNAUTHORIZED &&
+            err.response?.data?.message == 'Unauthorized' 
+        ) return await removeUserAndGoToSignInPage(submitReport)
+
+        const messages = err.response?.data?.message
+        if (messages) {
+            return setFormErrorWithMessages(messages)
+        }
+
+        callAlert({
+            show: true,
+            message: "Change of password failed. Try again shortly.",
+            type: 'failed'
+        })
+    })
+    .finally(() => {
+        setLoader(defaultLoader)
+    })
+  }
+
   async function submitAgency(e) {
     e.preventDefault()
     clearReportErrors()
@@ -413,10 +461,11 @@ function Home() {
           console.log(res)
           callAlert({
               show: true,
-              message: "Report was successfully made.",
+              message: "Agency was successfully made.",
               type: 'success'
           })
-          setReportData(defaultReportData)
+          dispatch(addPost(res.data))
+          setAgencyData(defaultAgencyData)
           closeModal()
       })
       .catch(async (err) => {
@@ -445,7 +494,6 @@ function Home() {
   function getFirstErrorFrom(errors: object, errorsList: Array<string>) {
     let key: string|null = null;
     errorsList.forEach((err) => {
-      console.log(err, errors[err])
       if (errors[err] && !key) key = err;
     })
 
@@ -474,6 +522,58 @@ function Home() {
       })
 
     return formData
+  }
+
+  function getUpdatedReportFormData() {
+    const formData = new FormData()
+    if (!oldPost) return formData
+
+    if (oldPost.name !== reportData.name.trim())
+      formData.append('name', reportData.name.trim())
+    if (oldPost.description !== reportData.description.trim())
+      formData.append('description', reportData.description.trim())
+    if (String(oldPost.severity) !== String(reportData.severity).trim())
+      formData.append('severity', String(reportData.severity).trim())
+    if (String(oldPost.lat) !== String(reportData.lat).trim())
+      formData.append('lat', String(reportData.lat).trim())
+    if (String(oldPost.lon) !== String(reportData.lon).trim())
+      formData.append('lon', String(reportData.lon).trim())
+    if ((oldPost.anonymous ? 'true' : '') !== reportData.anonymous.trim())
+      formData.append('anonymous', reportData.anonymous.trim() ? 'true' : 'false')
+    if (
+      String(oldPost.crimeTypeId) !== String(reportData.crimeTypeId).trim() &&
+      String(reportData.crimeTypeId).trim()
+    )
+      formData.append('crimeTypeId', String(reportData.crimeTypeId).trim())
+    if (oldPost.crimeTypeName !== reportData.crimeTypeName.trim())
+      formData.append('crimeTypeName', reportData.crimeTypeName.trim())
+    if (oldPost.landmark !== reportData.landmark.trim())
+      formData.append('landmark', reportData.landmark.trim())
+    if (oldPost.occurredOn !== `${reportData.occurredOn.trim()}Z`)
+      formData.append('occurredOn', reportData.occurredOn.trim())
+    formData.append('deletedFiles', JSON.stringify(reportData.deletedFiles))
+    if (objectsNotEqual(oldPost.suspect, reportData.suspect))
+      formData.append('suspect', JSON.stringify(reportData.suspect))
+    if (objectsNotEqual(oldPost.victim, reportData.victim))
+      formData.append('victim', JSON.stringify(reportData.victim))
+
+    if (reportData.files)
+      reportData.files.forEach((file: File) => {
+        if (!file.url)
+          formData.append(`files`, file)
+      })
+
+    return formData
+  }
+
+  function objectsNotEqual(firstObject: object, secondObject: object) {
+    let areNotEqual = false
+
+    Object.keys(firstObject).forEach((key: string) => {
+      if (firstObject[key] !== secondObject[key]) areNotEqual = true
+    })
+
+    return areNotEqual
   }
 
   function getAgencyFormData() {
@@ -618,23 +718,27 @@ function Home() {
   }
 
   function sendFile(file) {
-    let callback
-    if (formType == 'report') {
-      callback = setReportData
+    if (formType.includes('report')) {
+      setReportData((oldData) => {
+        const newData = {...oldData}
+        if (!newData.files) newData.files = []
+        
+        newData.files.push(file)
+
+        return newData
+      })
     }
     
     if (formType == 'agency') {
-      callback = setAgencyData
+      setAgencyData((oldData) => {
+        const newData = {...oldData}
+        if (!newData.files) newData.files = []
+        
+        newData.files.push(file)
+
+        return newData
+      })
     }
-
-    callback((oldData) => {
-      const newData = {...oldData}
-      if (!newData.files) newData.files = []
-      
-      newData.files.push(file)
-
-      return newData
-    })
   }
 
   function clickedNow() {
@@ -649,22 +753,97 @@ function Home() {
     })
   }
 
+  function updateAPost(
+    type: 'crime' | 'agency' | 'post',
+    item: PostType | CrimeType | AgencyType
+  ) {
+    if (type == 'crime') {
+      setReportData((oldData) => {
+        const newData = {
+          ...oldData,
+          name: item.name,
+          severity: item.severity,
+          landmark: item.landmark,
+          description: item.description,
+          lat: item.lat,
+          lon: item.lon,
+          occurredOn: item.occurredOn ? item.occurredOn.replace('Z', '') : '',
+          outcome: item.outcome,
+          anonymous: item.anonymous ? 'true' : '',
+          crimeTypeName: item.crimeTypeName,
+          crimeTypeId: item.crimeType?.id ?? '',
+          victim: item.victim,
+          suspect: item.suspect,
+          files: [...item.files]
+        }
+
+        return newData
+      })
+
+      setOldPost(item)
+
+      // create marker and center map
+      const location = {lat: Number(item.lat), lng: Number(item.lon)}
+      addMarker(reportMap, location)
+      if (reportMap) reportMap.setCenter(location)
+      setFormType('update report')
+    }
+  }
+
+  function deletePost(
+    type: 'crime' | 'agency' | 'post',
+    item: PostType | CrimeType | AgencyType
+  ) {
+    
+  }
+
   return ( 
-    <div className="mb-5">
-      <div className="flex items-start justify-start">
-          <div className="w-[100px] flex-shrink-0 bg-blue-200 p-2 h-[300px] rounded-br-lg">
-            <div className="mt-5" onClick={() => setView(HomeViews.all)}>all</div>
-            <div className="" onClick={() => setView(HomeViews.crimes)}>crimes</div>
-            <div  onClick={() => setView(HomeViews.agencies)}>agencies</div>
+    <div className="">
+      <div className="flex items-start justify-start flex-col sm:flex-row overflow-y-auto">
+        <div className="sm:w-[120px] md:w-[150px] w-full flex-shrink-0 bg-blue-200 p-2 h-fit sm:h-[300px] rounded-bl-lg sm:rounded-bl-none rounded-br-lg">
+          <div className=" flex sm:block justify-start p-2 text-blue-700">
+            <div
+              className={`${view == HomeViews.all ? 
+                'text-center border-2 border-blue-50 font-bold sm:-translate-x-1 sm:translate-y-0 translate-x-0 -translate-y-1' : 
+                'hover:text-center sm:hover:-translate-x-1 hover:-translate-y-1 text-center sm:text-right'
+              } 
+              sm:w-full min-w-[100px] 
+              mr-2 px-2 py-1 cursor-pointer hover:text-base
+              hover:font-bold transition-all hover:bg-blue-50 duration-75 rounded sm:my-4`
+              }
+              onClick={() => setView(HomeViews.all)}>all</div>
+            <div 
+              className={`${view == HomeViews.crimes ? 
+                'text-center border-2 border-blue-50 font-bold sm:-translate-x-1 sm:translate-y-0 translate-x-0 -translate-y-1' : 
+                'hover:text-center sm:hover:-translate-x-1 hover:-translate-y-1 text-center sm:text-right'
+              } 
+              sm:w-full min-w-[100px] 
+              mr-2 px-2 py-1 cursor-pointer hover:text-base
+              hover:font-bold transition-all hover:bg-blue-50 duration-75 rounded sm:my-4`
+              }
+              onClick={() => setView(HomeViews.crimes)}>crimes</div>
+            <div
+              className={`${view == HomeViews.agencies ? 
+                  'text-center border-2 border-blue-50 font-bold sm:-translate-x-1 sm:translate-y-0 translate-x-0 -translate-y-1' : 
+                  'hover:text-center sm:hover:-translate-x-1 hover:-translate-y-1 text-center sm:text-right'
+                } 
+                sm:w-full min-w-[100px] 
+                mr-2 px-2 py-1 cursor-pointer hover:text-base
+                hover:font-bold transition-all hover:bg-blue-50 duration-75 rounded sm:my-4`
+              }
+              onClick={() => setView(HomeViews.agencies)}>agencies</div>
           </div>
-          <div className="flex justify-center items-start w-full h-[90vh]">
-            <div className="w-[80%] mx-auto">
-              <HomeView
-                createCrime={() => setFormType('report')}
-                createAgency={() => setFormType('agency')}
-              />
-            </div>
+        </div>
+        <div className="flex justify-center items-start h-[90vh] flex-shrink w-[90%] sm:w-[60%] md:w-[80%] mx-auto">
+          <div className="w-full">
+            <HomeView
+              createCrime={() => setFormType('report')}
+              createAgency={() => setFormType('agency')}
+              deletePost={deletePost}
+              updatePost={updateAPost}
+            />
           </div>
+        </div>
       </div>
 
       <Modal 
@@ -672,10 +851,10 @@ function Home() {
         title={modelTitle} 
         close={closeModal}
       >
-        {formType == 'report' && 
+        {formType.includes('report') && 
           <div className="w-[90%] mx-auto xs:w-[80%] md:w-[70%] relative">
             <Loader className="fixed max-w-[50%]" switchAppearance={loader.show && loader.type == 'report'}>
-                reporting crime ...
+                {formType == 'report' ? 'reporting crime': 'updating crime report'} ...
             </Loader>
             <form className="max-w-[400px] mx-auto p-5" onSubmit={submitReport}>
               <div className="my-4 p-4 bg-gray-200 rounded-lg">
@@ -731,7 +910,8 @@ function Home() {
                       value={reportData.severity}
                       onChange={(e) => setFormReportData('severity', Number(e.target.value).toFixed())}
                   ></ProfileInput>
-                  <div className="flex justify-end items-center w-full">
+                  <InputError message={reportErrors.severity} className="mt-2" />
+                  <div className="flex justify-end items-center w-full mt-2 mb-4">
                       <div 
                         onClick={() => setFormReportData('severity', 10)}
                         className={`${reportData.severity == '10' ? 
@@ -760,7 +940,26 @@ function Home() {
                           `}
                       >low</div>
                   </div>
-                  <InputError message={reportErrors.severity} className="mt-2" />
+                </div>
+                <div className="flex justify-end items-center w-full">
+                  {!reportData.anonymous ? <div 
+                    onClick={() => setFormReportData('anonymous', 'true')}
+                    className={`${reportData.anonymous == '10' ? 
+                    'bg-blue-700 text-blue-300' :
+                    'text-blue-700 bg-blue-300 hover:bg-blue-700 hover:text-blue-300'} 
+                    mt-2 text-sm py-1 px-2 rounded mx-2
+                    w-fit float-right cursor-pointer transition duration-75
+                    `}
+                  >stay anonymous</div> :
+                  <div 
+                    onClick={() => setFormReportData('anonymous', '')}
+                    className={`${reportData.anonymous == '5' ? 
+                    'bg-blue-700 text-blue-300' :
+                    'text-blue-700 bg-blue-300 hover:bg-blue-700 hover:text-blue-300'} 
+                    mt-2 text-sm py-1 px-2 rounded mx-2
+                    w-fit float-right cursor-pointer transition duration-75
+                    `}
+                  >be known</div>}
                 </div>
               </div>
               <div className="w-full flex flex-col my-4 p-4 bg-gray-200 rounded-lg">
@@ -953,6 +1152,20 @@ function Home() {
                       return newData
                     })
                   }}
+                  onRemove={(file: File|FileType|null) => {
+                    setReportData((oldData) => {
+                      const newData = {...oldData}
+                      if (!file) return newData
+                      
+                      const idx = newData.files.findIndex((item) => item.id == file.id)
+                      if (idx > -1) newData.files.splice(idx, 1)
+
+                      if (!newData.deletedFiles.includes(file.id))
+                        newData.deletedFiles.push(file.id)
+
+                      return newData
+                    })
+                  }}
                   getMedia={(type) => setMediaCaptureData({show: true, type})}
                 />
 
@@ -1047,7 +1260,7 @@ function Home() {
                 <InputError message={agencyErrors.files} className="mt-2" />
               </div>
               <div className="w-full flex justify-end my-4 p-2">
-                  <Button className="">report</Button>
+                  <Button className="">{formType == 'agency' ? 'create agency' : formType}</Button>
               </div>
             </form>
           </div>

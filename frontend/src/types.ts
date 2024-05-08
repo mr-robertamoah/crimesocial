@@ -10,6 +10,7 @@ export interface UserType {
     gender: string,
     country: string | null,
     avatarUrl: string | null,
+    isAdmin?: boolean,
 }
 
 export interface PostType {
@@ -20,8 +21,8 @@ export interface PostType {
     userId: number;
     user?: UserType,
     files?: Array<FileType>;
-    crimes?: Array<FileType>;
-    agencies?: Array<FileType>;
+    crime?: Array<CrimeType>;
+    agency?: Array<AgencyType>;
 }
 
 export interface CrimeType {
@@ -44,6 +45,7 @@ export interface CrimeType {
     anonymous: boolean;
     crimeTypeId?: number | null;
     crimeTypeName?: string | null;
+    crimeType: CrimeType;
 }
 
 export interface AgencyType {
@@ -55,11 +57,13 @@ export interface AgencyType {
     email: string;
     phoneNumber: string;
     description: string;
-    verifiedOn: string;
+    verifiedAt: string;
     createdAt: string;
     updatedAt: string;
     id: number;
     type: string;
+    agents?: Array<AgentType>;
+    avatarUrl: string | null,
 }
 
 export interface FileType {
@@ -67,8 +71,16 @@ export interface FileType {
     updatedAt: string;
     id: number;
     url: string;
-    path: string;
+    path?: string;
     mime: string;
     size: number;
     userId: number;
+}
+
+export interface AgentType {
+    createdAt?: string;
+    updatedAt?: string;
+    id: number;
+    userId?: number;
+    agencyId?: string;
 }

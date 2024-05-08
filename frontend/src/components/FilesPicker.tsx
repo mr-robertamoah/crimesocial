@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Button from "./partials/Button";
 import { useMainLayoutContext } from "../layouts/useMainLayoutContext";
+import { FileType } from "../types";
 
 export function FilesPicker(
     {
@@ -9,10 +10,11 @@ export function FilesPicker(
         ...props
     } :
     {
-        onChange?: ((file: File|null) => void)|null, 
-        getMedia?: ((type: string) => void)|null, 
-        onDelete?: ((file: File) => void)|null, onRemove?: (() => void)|null, 
-        accept: string, files: Array<File> | null
+        onChange?: ((file: File|FileType|null) => void)|null;
+        getMedia?: ((type: string) => void)|null;
+        onDelete?: ((file: File|FileType|null) => void)|null;
+        onRemove?: ((file: File|FileType|null) => void)|null; 
+        accept: string; files: Array<File> | null;
     }
 ) {
     const fileInput = useRef()
@@ -44,6 +46,11 @@ export function FilesPicker(
     }
 
     function deleteFile(file: File) {
+        if (file.url) {
+            if (onRemove) onRemove(file)
+            return;
+        }
+
         if (!onDelete) return
 
         onDelete(file)
@@ -93,10 +100,11 @@ export function FilesPicker(
                         <div className="overflow-y-auto w-full py-2 bg-white flex justify-start items-center">
                             {
                                 files.map((file, idx) => {
-                                    const fileType = file.type.includes('image') ? 'picture' : (file.type.includes('video') ? 'video' : 'file')
-                                    return file.type.includes('image') ?
+                                    const fileTypeKey: string = file.mime ? 'mime' : 'type'
+                                    const fileType = file[fileTypeKey].includes('image') ? 'picture' : (file[fileTypeKey].includes('video') ? 'video' : 'file')
+                                    return file[fileTypeKey].includes('image') ?
                                     <div className="min-w-[150px] mx-2 p-2 rounded bg-violet-200 text-gray-600 hover:text-white hover:bg-violet-600 text-sm" key={idx}>
-                                        <img src={URL.createObjectURL(file)} alt={file.name} />
+                                        <img src={file.url ? file.url : URL.createObjectURL(file)} alt={file.name} />
                                         <div className="flex justify-end items-center my-2">
                                             <div
                                                 onClick={() => deleteFile(file)}
@@ -104,9 +112,17 @@ export function FilesPicker(
                                             >delete</div>
                                         </div>
                                     </div> :
-                                    file.type.includes('video') ?
+                                    file[fileTypeKey].includes('video') ?
                                     <div className="min-w-[150px] mx-2 p-2 rounded bg-violet-200 text-gray-600 hover:text-white hover:bg-violet-600 text-sm" key={idx}>
-                                        <video autoPlay className="w-[300px] h-[200px]" src={URL.createObjectURL(file)} width={300} height={200} onLoad={(e) => e.target.play()}>{file.name}</video>
+                                        <video
+                                            autoPlay
+                                            className="w-[300px] h-[200px]" 
+                                            src={file.url ? file.url : URL.createObjectURL(file)}
+                                            width={300} height={200}
+                                            onLoad={(e) => e.target.play()}
+                                            muted={!file.url ? true : false}
+                                            controls={file.url ? true : false}
+                                        >{file.name}</video>
                                         <div className="flex justify-end items-center my-2">
                                             <div
                                                 onClick={() => deleteFile(file)}

@@ -43,10 +43,8 @@ export class CrimeService {
 
   private doesNotContainMainMarkers(victimOrSuspect: object) {
     let doesNotContain = true;
-    console.log(victimOrSuspect);
 
     Object.keys(victimOrSuspect).forEach((key) => {
-      console.log(key);
       if (this.descriptiveMarkers.includes(key)) {
         doesNotContain = false;
       }
@@ -98,7 +96,6 @@ export class CrimeService {
     dto: CreateCrimeDTO,
     files: Array<Express.Multer.File>,
   ) {
-    console.log(dto, files);
     const { victim, suspect } = this.getVictimAndSuspectFromDTO(dto);
 
     const data = {
@@ -155,7 +152,7 @@ export class CrimeService {
   async ensureCrimeIdIsValid(crimeId: string | number) {
     const crime = await this.prisma.crime.findFirst({
       where: { id: Number(crimeId) },
-      include: { files: true },
+      include: { files: true, crimeType: true },
     });
 
     if (crime) return crime;
@@ -183,11 +180,20 @@ export class CrimeService {
       data[key] = dto[key];
     });
 
+    if (data.occurredOn)
+      data.occurredOn = new Date(dto.occurredOn).toISOString();
+
     if (data.suspect)
-      data.suspect = this.checkAndGetDescriptiveMarkersFromDTO(dto, 'suspect');
+      data.suspect = {
+        ...this.checkAndGetDescriptiveMarkersFromDTO(dto, 'suspect'),
+        ...Object(crime.suspect),
+      };
 
     if (data.victim)
-      data.victim = this.checkAndGetDescriptiveMarkersFromDTO(dto, 'victim');
+      data.victim = {
+        ...this.checkAndGetDescriptiveMarkersFromDTO(dto, 'victim'),
+        ...Object(crime.victim),
+      };
 
     if (files && files.length)
       await this.fileService.createAndStoreFilesFor(
@@ -198,8 +204,10 @@ export class CrimeService {
         files,
       );
 
-    if (dto.deletedFiles) {
-      this.fileService.deleteFilesUsingIds(JSON.parse(dto.deletedFiles));
+    const deletedFiles = JSON.parse(dto.deletedFiles);
+    if (deletedFiles.length) {
+      console.log(deletedFiles);
+      this.fileService.deleteFilesUsingIds(deletedFiles);
     }
 
     crime = await this.prisma.updateMultipleFields({
@@ -209,15 +217,17 @@ export class CrimeService {
       include: { files: true },
     });
 
-    crime.files = crime.files.map((file) => {
+    const post = await this.postService.getPostFor({
+      postableType: 'crime',
+      postableId: crime.id,
+    });
+
+    post.crime[0].files = post.crime[0].files.map((file) => {
       delete file.path;
       return file;
     });
 
-    return await this.postService.getPostFor({
-      postableType: 'crime',
-      postableId: crime.id,
-    });
+    return post;
   }
 
   async deleteCrime(user: User, crimeId: number) {

@@ -22,7 +22,7 @@ export default function Modal(
     return (
         <div
             onClick={clickedBackground}
-            className={(show ? `` : `invisible`) + ` ${className} bg-gray-300 bg-opacity-65 transition-all duration-300 ease-in-out absolute top-0 w-full left-0 h-[100vh] flex justify-center items-center`}>
+            className={(show ? `` : `invisible`) + ` ${className} bg-gray-300 bg-opacity-65 transition-all duration-300 ease-in-out fixed inset-0 w-full left-0 h-[100vh] flex justify-center items-center`}>
             <div className="w-[90%] xs:w-[75%] md:w-[50%] lg:w-[40%] bg-white h-[70vh] relative rounded-lg">
                 {hasClose && <div onClick={clickedClose}
                     className="uppercase cursor-pointer text-center absolute rounded-full h-[25px] w-[25px] -top-2 

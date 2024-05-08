@@ -13,7 +13,7 @@ import {
 } from 'class-validator';
 
 export default class UpdateCrimeDTO {
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumberString()
   crimeId: string;
 

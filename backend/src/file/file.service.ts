@@ -14,6 +14,7 @@ type FileDetailType = {
   path: string;
   mime: string;
   size: number;
+  name: string;
 };
 type FileRelations = {
   agencies?: {
@@ -50,7 +51,10 @@ export class FileService {
           `Sorry the file with id: ${id} was not found.`,
         );
 
-      filesToDelete.push(file.path);
+      await this.deleteFileFromStorage(file.path);
+      await this.prisma.file.delete({
+        where: { id: Number(id) },
+      });
     });
 
     this.deleteFiles(filesToDelete, throwError);
@@ -60,9 +64,7 @@ export class FileService {
     filesToDelete.forEach((filePath) => {
       if (!existsSync(filePath) && throwError)
         throw new BadRequestException('Path to the file does not exits.');
-    });
 
-    filesToDelete.forEach((filePath) => {
       this.deleteFileFromStorage(filePath);
     });
   }
@@ -113,7 +115,6 @@ export class FileService {
     data: FileDetailType,
     relations: FileRelations,
   ) {
-    console.log(relations);
     return await this.prisma.file.create({
       data: {
         userId,
@@ -145,6 +146,6 @@ export class FileService {
 
     writeFileSync(path, buffer);
 
-    return { url, path, mime: mimetype, size };
+    return { url, path, mime: mimetype, size, name: originalname };
   }
 }

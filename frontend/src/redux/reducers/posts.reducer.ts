@@ -6,8 +6,14 @@ export const postsSlice = createSlice({
     reducers: {
         updatePosts: (state, action) =>{
             if (!action?.payload) return state
-            const newPosts = action.payload.filter(i => state.findIndex(j => j.id == i.id))
+            const newPosts = action.payload.filter(i => !state.some(j => j.id == i.id))
             state.push(...newPosts)
+        },
+        updatePost: (state, action) =>{
+            if (!action?.payload) return state
+            state.splice(state.findIndex(post => post.id == action.payload.id), 1)
+            
+            state.unshift(action.payload)
         },
         addPost: (state, action) =>{
             if (!action?.payload) return state
@@ -16,6 +22,6 @@ export const postsSlice = createSlice({
     }
 })
 
-export const { updatePosts, addPost } = postsSlice.actions
+export const { updatePosts, updatePost, addPost } = postsSlice.actions
 
 export default postsSlice.reducer

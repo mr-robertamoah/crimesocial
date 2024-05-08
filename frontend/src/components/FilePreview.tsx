@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react"
+import { FileType } from "../types";
 
 export default function FilePreview(
     { 
         hasCircleImg = false, show = false, middle = false, file = null, showRemove = true, imgSrc = '',
-        width = '75%', type = 'normal', removeFile = null,
+        width = '75%', type = 'normal', removeFile = null, className = ''
     }:
     { 
-        hasCircleImg: boolean; show: boolean; middle: boolean; file: Blob | null; showRemove: boolean; imgSrc: string;
-        width: string; type: string; removeFile: (() => void) | null;
+        hasCircleImg: boolean; show: boolean; middle: boolean; file: Blob | null | FileType; showRemove: boolean; imgSrc: string;
+        width: string; type: string; removeFile: (() => void) | null; className: string;
     }
 ) {
     const circlepreviewimg = useRef(null)
@@ -40,10 +41,7 @@ export default function FilePreview(
             return
         }
 
-        if (file.url) {
-            showFile(file)
-            return
-        }
+        if (file.url) return showFile(file)
 
         readFile(file)
     }, [file])
@@ -60,25 +58,27 @@ export default function FilePreview(
         }
 
         let el = null
-        if (f.type.includes('image')) {
-            el = document.getElementById('img')
-            if (!el)
-                el = document.createElement('img')
-            el = setImageAttributes(el)
+        if (f.mime.includes('image')) {
+            el = document.getElementById(`img${f.id}`)
+            if (!el) {
+                el = document.createElement(`img`)
+            }
+            el = setImageAttributes(el, f.id)
             el.src = f.url
-        } else if (f.type.includes('video')) {
+            appendElementToPreview(el)
+        } else if (f.mime.includes('video')) {
             el = document.getElementById('video')
             if (!el)
                 el = document.createElement('video')
             el = setVideoAttributes(el)
             el.src = f.url
-        } else if (f.type.includes('audio')) {
+        } else if (f.mime.includes('audio')) {
             el = document.getElementById('audio')
             if (!el)
                 el = document.createElement('audio')
             el = setAudioAttributes(el)
             el.src = f.url
-        } else if (f.type.includes('file')) {
+        } else if (f.mime.includes('file')) {
             el = document.createElement('div')
             el = setFileAttributes(el, f)
         } else {
@@ -101,8 +101,11 @@ export default function FilePreview(
         preview.current.appendChild(element)
     }
 
-    function setImageAttributes(el) {
-        el.setAttribute('id','img')
+    function setImageAttributes(el, id = null) {
+        if (id)
+            el.setAttribute('id',`img${id}`)
+        else
+            el.setAttribute('id','img')
         el.style.width = '100%'
         el.style.height = '100%'
         el.style.objectFit = 'contain'
@@ -188,7 +191,7 @@ export default function FilePreview(
 
     return (
         <>
-            <div className="w-full"
+            <div className={`${className ? className : ''} w-full`}
             >
                 {(showRemove ? (file ? true
                     : false) : false) && <div className="text-sm absolute "
@@ -198,7 +201,7 @@ export default function FilePreview(
                         remove
                     </div>
                 </div>}
-                {(type === 'normal') && <div className={`${middle ? 'w-full h-full' : ''} w-full text-center`}
+                {(type === 'normal') && <div className={`${middle ? 'w-full h-full' : ''} w-full text-center min-w-[200px]`}
                     ref={preview}
                 ></div>}
                 {(type === 'circle') && <div className="w-[150px] h-[150px] rounded-full flex justify-center items-center ml-auto bg-gray-700">

@@ -47,6 +47,9 @@ model User {
   reportedCrimes Crime[]
   addedDescriptiveMarkers DescriptiveMarker[]
   posts Post[]
+
+  requestsFrom Request[] @relation("FromUser")
+  requestsTo Request[] @relation("ToUser")
 }
 
 model Avatar {
@@ -90,6 +93,7 @@ model File {
   updatedAt DateTime @updatedAt
 
   url String @unique
+  name String?
   path String
   mime String
   size Int
@@ -158,6 +162,9 @@ model Agency {
 
   avatars   Avatar[]
   AvatarToAgency AvatarToAgency[]
+
+  requests Request[]
+  RequestToAgency RequestToAgency[]
 }
 
 model Agent {
@@ -166,7 +173,7 @@ model Agent {
   updatedAt DateTime @updatedAt
 
   type     AgentType @default(NORMAL)
-  position String
+  position String?
   userId   Int
   agencyId Int
 
@@ -184,6 +191,40 @@ model Agent {
 
   crimeTypes   CrimeType[]
   CrimeTypeToAgent CrimeTypeToAgent[]
+}
+
+model Request {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fromId Int
+  toId Int
+  message String?
+  state RequestState @default(PENDING)
+
+  fromUser User @relation("FromUser", fields: [fromId], references: [id], onDelete: Cascade, map: "FromUserRequestByIdKey")
+  toUser User @relation("ToUser", fields: [fromId], references: [id], onDelete: Cascade, map: "ToUserRequestByIdKey")
+
+  agencies Agency[]
+  RequestToAgency RequestToAgency[]
+}
+
+
+enum RequestState {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model RequestToAgency{
+  requestId Int
+  agencyId Int
+
+  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@id([requestId, agencyId])
 }
 
 enum AgencyType {
@@ -481,8 +522,8 @@ model FileToPost {
   postId Int
   fileId Int
 
-  post Post @relation(fields: [postId], references: [id])
-  file File @relation(fields: [fileId], references: [id])
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@id([postId, fileId])
 }
@@ -491,8 +532,8 @@ model FileToCrime {
   crimeId Int
   fileId Int
 
-  crime Crime @relation(fields: [crimeId], references: [id])
-  file File @relation(fields: [fileId], references: [id])
+  crime Crime @relation(fields: [crimeId], references: [id], onDelete: Cascade)
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@id([crimeId, fileId])
 }
@@ -501,8 +542,8 @@ model FileToAgency {
   agencyId Int
   fileId Int
 
-  agency Agency @relation(fields: [agencyId], references: [id])
-  file File @relation(fields: [fileId], references: [id])
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@id([agencyId, fileId])
 }
